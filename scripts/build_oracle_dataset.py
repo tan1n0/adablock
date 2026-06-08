@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 import torch
+from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,6 +41,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-stride", type=int, default=4)
     parser.add_argument("--dtype", default="bfloat16", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--device-map", default="auto")
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="Fallback device when device_map does not dispatch the model, e.g. cuda:0 or cpu.",
+    )
+    parser.add_argument(
+        "--allow-cpu",
+        action="store_true",
+        help="Allow CPU oracle generation. Without this flag the script fails if CUDA is unavailable.",
+    )
+    parser.add_argument(
+        "--skip-nonfinite-docs",
+        action="store_true",
+        help="Skip documents whose hidden states or attentions contain NaN/Inf.",
+    )
+    parser.add_argument("--log-every-doc", action="store_true")
     return parser.parse_args()
 
 
@@ -71,19 +88,49 @@ def main() -> None:
     )
 
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
+    cuda_available = torch.cuda.is_available()
+    print(
+        {
+            "event": "torch_device_check",
+            "torch": torch.__version__,
+            "torch_cuda": torch.version.cuda,
+            "cuda_available": cuda_available,
+            "cuda_device_count": torch.cuda.device_count(),
+        },
+        flush=True,
+    )
+    if not cuda_available and not args.allow_cpu:
+        raise RuntimeError(
+            "CUDA is not available in this Python environment, so oracle generation would run on CPU. "
+            "Install a CUDA-enabled PyTorch build or pass --allow-cpu intentionally."
+        )
+
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         torch_dtype=load_dtype(args.dtype),
         device_map=args.device_map,
         attn_implementation="eager",
     )
+    if getattr(model, "hf_device_map", None) is None:
+        fallback_device = args.device or ("cuda:0" if cuda_available else "cpu")
+        model.to(fallback_device)
     model.eval()
+    print(
+        {
+            "event": "model_loaded",
+            "model": args.model_name,
+            "device_map": getattr(model, "hf_device_map", None),
+            "model_device": str(model.device),
+        },
+        flush=True,
+    )
 
     output_path = Path(args.output_jsonl)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     with output_path.open("w", encoding="utf-8") as out:
-        for doc_id, text in iter_texts(Path(args.input_jsonl), args.text_field, args.max_docs):
+        text_iter = iter_texts(Path(args.input_jsonl), args.text_field, args.max_docs)
+        for doc_id, text in tqdm(text_iter, desc="building oracle", unit="doc"):
             encoded = tokenizer(
                 text,
                 truncation=True,
@@ -95,6 +142,8 @@ def main() -> None:
             seq_len = int(input_ids.shape[-1])
             if seq_len < args.block_size * 2:
                 continue
+            if args.log_every_doc:
+                print({"event": "forward_start", "doc_id": doc_id, "seq_len": seq_len}, flush=True)
 
             with torch.no_grad():
                 outputs = model(
@@ -104,9 +153,26 @@ def main() -> None:
                     output_hidden_states=True,
                     use_cache=False,
                 )
+            if args.log_every_doc:
+                print({"event": "forward_done", "doc_id": doc_id, "seq_len": seq_len}, flush=True)
 
             hidden = outputs.hidden_states[-1][0].detach().cpu().float()
             attentions = torch.stack([attn[0].detach().cpu().float() for attn in outputs.attentions])
+            if not torch.isfinite(hidden).all() or not torch.isfinite(attentions).all():
+                message = {
+                    "event": "nonfinite_forward_output",
+                    "doc_id": doc_id,
+                    "seq_len": seq_len,
+                    "hidden_finite": bool(torch.isfinite(hidden).all().item()),
+                    "attentions_finite": bool(torch.isfinite(attentions).all().item()),
+                }
+                if args.skip_nonfinite_docs:
+                    print(message | {"action": "skip"}, flush=True)
+                    continue
+                raise FloatingPointError(
+                    f"Model output contains NaN/Inf: {message}. "
+                    "Regenerate with CUDA, a smaller max_length, or dtype bfloat16/float32."
+                )
             # Shape: layers, heads, seq, seq. Average layers and heads for oracle labels.
             mean_attention = attentions.mean(dim=(0, 1))
 
@@ -169,10 +235,12 @@ def main() -> None:
                     "reuse_label": reuse_label,
                     "category_target": category_target(block_mass, categories).tolist(),
                 }
-                out.write(json.dumps(row) + "\n")
+                out.write(json.dumps(row, allow_nan=False) + "\n")
 
                 previous_oracle_blocks = top_blocks(block_mass, required_k)
                 previous_hidden = hidden[t]
+            if args.log_every_doc:
+                print({"event": "doc_done", "doc_id": doc_id, "seq_len": seq_len}, flush=True)
 
 
 if __name__ == "__main__":

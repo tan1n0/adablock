@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -22,12 +23,29 @@ from models.adablock_policy import (
 
 
 class AdaBlockOracleDataset(Dataset):
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, drop_nonfinite: bool = True) -> None:
         self.rows: list[dict[str, Any]] = []
+        self.dropped_nonfinite = 0
         with Path(path).open("r", encoding="utf-8") as handle:
             for line in handle:
                 if line.strip():
-                    self.rows.append(json.loads(line))
+                    row = json.loads(line)
+                    if drop_nonfinite and self._has_nonfinite(row):
+                        self.dropped_nonfinite += 1
+                        continue
+                    self.rows.append(row)
+
+    @staticmethod
+    def _has_nonfinite(value: Any) -> bool:
+        if isinstance(value, float):
+            return not math.isfinite(value)
+        if isinstance(value, int) or value is None or isinstance(value, str):
+            return False
+        if isinstance(value, list):
+            return any(AdaBlockOracleDataset._has_nonfinite(item) for item in value)
+        if isinstance(value, dict):
+            return any(AdaBlockOracleDataset._has_nonfinite(item) for item in value.values())
+        return False
 
     def __len__(self) -> int:
         return len(self.rows)
@@ -67,6 +85,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lambda-reuse", type=float, default=1.0)
     parser.add_argument("--lambda-category", type=float, default=1.0)
     parser.add_argument("--lambda-cost", type=float, default=0.01)
+    parser.add_argument("--keep-nonfinite", action="store_true")
     return parser.parse_args()
 
 
@@ -114,9 +133,11 @@ def main() -> None:
     torch.manual_seed(args.seed)
     device = torch.device(args.device)
 
-    dataset = AdaBlockOracleDataset(args.train_jsonl)
+    dataset = AdaBlockOracleDataset(args.train_jsonl, drop_nonfinite=not args.keep_nonfinite)
     if len(dataset) == 0:
         raise ValueError("Training dataset is empty.")
+    if dataset.dropped_nonfinite:
+        print({"event": "dropped_nonfinite_rows", "count": dataset.dropped_nonfinite})
 
     val_size = max(1, int(len(dataset) * args.val_ratio)) if len(dataset) > 1 else 0
     train_size = len(dataset) - val_size

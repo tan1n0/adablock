@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pyo
+
+.venv/
+venv/
+env/
+
+data/
+checkpoints/
+*.pt
+*.pth
+*.safetensors
+
+.cache/
+.huggingface/

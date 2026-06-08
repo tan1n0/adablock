@@ -55,6 +55,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Optional existing JSONL with a text field; appended as another source.",
     )
+    parser.add_argument(
+        "--strict-sources",
+        action="store_true",
+        help="Fail immediately when a Hugging Face source cannot be loaded.",
+    )
     return parser.parse_args()
 
 
@@ -159,13 +164,13 @@ def import_datasets():
 def load_hf_source(source: str, split: str, max_samples: int, max_chars: int) -> Iterable[dict[str, str]]:
     load_dataset = import_datasets()
     if source == "qasper":
-        dataset = load_dataset("allenai/qasper", split=split, trust_remote_code=True)
+        dataset = load_dataset("allenai/qasper", split=split)
         formatter = format_qasper
     elif source == "govreport":
         dataset = load_dataset("ccdv/govreport-summarization", split=split)
         formatter = format_govreport
     elif source == "narrativeqa":
-        dataset = load_dataset("deepmind/narrativeqa", split=split, trust_remote_code=True)
+        dataset = load_dataset("deepmind/narrativeqa", split=split)
         formatter = format_narrativeqa
     else:
         raise ValueError(f"Unsupported Hugging Face source: {source}")
@@ -238,13 +243,18 @@ def main() -> None:
                     max_samples=args.max_samples_per_source,
                     max_chars=args.max_chars,
                 )
-            for row in rows:
-                text = row["text"].strip()
-                if len(text) < args.min_chars:
-                    continue
-                out.write(json.dumps({"text": text, "source": row["source"]}, ensure_ascii=False) + "\n")
-                counts[row["source"]] = counts.get(row["source"], 0) + 1
-                total += 1
+            try:
+                for row in rows:
+                    text = row["text"].strip()
+                    if len(text) < args.min_chars:
+                        continue
+                    out.write(json.dumps({"text": text, "source": row["source"]}, ensure_ascii=False) + "\n")
+                    counts[row["source"]] = counts.get(row["source"], 0) + 1
+                    total += 1
+            except Exception as exc:
+                if args.strict_sources:
+                    raise
+                print(f"[warn] skipped source={source}: {exc}", file=sys.stderr)
 
         if args.local_jsonl:
             for row in load_local_jsonl(args.local_jsonl, args.max_chars):
