@@ -93,17 +93,27 @@ def load_longbench_task(task: str, split: str = "test", cache_dir: str | Path | 
         )
     try:
         from huggingface_hub import hf_hub_download
+        from datasets import load_dataset
     except ImportError as exc:
         raise SystemExit(
-            "Missing dependency: huggingface_hub. Install with `pip install -r requirement.txt`."
+            "Missing dependency: huggingface_hub/datasets. Install with `pip install -r requirement.txt`."
         ) from exc
-    path = hf_hub_download(
-        repo_id="THUDM/LongBench",
-        repo_type="dataset",
-        filename=f"data/{task}.jsonl",
-        cache_dir=str(cache_dir) if cache_dir else None,
-    )
-    return load_local_task(path)
+    try:
+        path = hf_hub_download(
+            repo_id="zai-org/LongBench",
+            repo_type="dataset",
+            filename=f"{task}/test-00000-of-00001.parquet",
+            cache_dir=str(cache_dir) if cache_dir else None,
+        )
+        return list(load_dataset("parquet", data_files=path, split="train"))
+    except Exception:
+        path = hf_hub_download(
+            repo_id="THUDM/LongBench",
+            repo_type="dataset",
+            filename=f"data/{task}.jsonl",
+            cache_dir=str(cache_dir) if cache_dir else None,
+        )
+        return load_local_task(path)
 
 
 def load_local_task(path: str | Path) -> list[dict[str, Any]]:
