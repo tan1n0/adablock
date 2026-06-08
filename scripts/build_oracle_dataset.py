@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import sys
 from pathlib import Path
@@ -39,7 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reuse-coverage", type=float, default=0.9)
     parser.add_argument("--max-docs", type=int, default=None)
     parser.add_argument("--sample-stride", type=int, default=4)
-    parser.add_argument("--dtype", default="bfloat16", choices=["float16", "bfloat16", "float32"])
+    parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--device-map", default="auto")
     parser.add_argument(
         "--device",
@@ -167,6 +168,9 @@ def main() -> None:
 
             hidden = outputs.hidden_states[-1][0].detach().cpu().float()
             attentions = torch.stack([attn[0].detach().cpu().float() for attn in outputs.attentions])
+            del outputs
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
             if not torch.isfinite(hidden).all() or not torch.isfinite(attentions).all():
                 message = {
                     "event": "nonfinite_forward_output",
@@ -250,6 +254,10 @@ def main() -> None:
                 previous_hidden = hidden[t]
             if args.log_every_doc:
                 print({"event": "doc_done", "doc_id": doc_id, "seq_len": seq_len}, flush=True)
+            del hidden, attentions, mean_attention
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
 
 if __name__ == "__main__":
