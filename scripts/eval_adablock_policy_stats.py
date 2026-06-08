@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--split", default="test")
     parser.add_argument("--output-json", default="results/adablock_policy_stats.json")
     parser.add_argument("--local-data-dir", default=None)
+    parser.add_argument("--longbench-cache-dir", default=None)
     parser.add_argument("--max-input-length", type=int, default=8192)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--block-size", type=int, default=16)
@@ -50,7 +51,7 @@ def parse_args() -> argparse.Namespace:
 def load_rows(args: argparse.Namespace, task: str):
     if args.local_data_dir:
         return load_local_task(Path(args.local_data_dir) / f"{task}.jsonl")
-    return load_longbench_task(task, split=args.split)
+    return load_longbench_task(task, split=args.split, cache_dir=args.longbench_cache_dir)
 
 
 def load_policy(path: str | Path, device: torch.device) -> AdaBlockPolicy:

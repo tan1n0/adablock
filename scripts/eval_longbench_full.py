@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--split", default="test")
     parser.add_argument("--output-dir", default="results/longbench_full")
     parser.add_argument("--local-data-dir", default=None)
+    parser.add_argument("--longbench-cache-dir", default=None)
     parser.add_argument("--max-input-length", type=int, default=8192)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
@@ -49,7 +50,7 @@ def load_rows(args: argparse.Namespace, task: str):
     if args.local_data_dir:
         path = Path(args.local_data_dir) / f"{task}.jsonl"
         return load_local_task(path)
-    return load_longbench_task(task, split=args.split)
+    return load_longbench_task(task, split=args.split, cache_dir=args.longbench_cache_dir)
 
 
 def main() -> None:

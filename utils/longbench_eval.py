@@ -86,14 +86,24 @@ def normalize_device_map(value: str | None) -> str | None:
     return value
 
 
-def load_longbench_task(task: str, split: str = "test"):
+def load_longbench_task(task: str, split: str = "test", cache_dir: str | Path | None = None):
+    if split != "test":
+        raise ValueError(
+            "LongBench v1 public files are test JSONL files. Use --local-data-dir for custom splits."
+        )
     try:
-        from datasets import load_dataset
+        from huggingface_hub import hf_hub_download
     except ImportError as exc:
         raise SystemExit(
-            "Missing dependency: datasets. Install with `pip install -r requirement.txt`."
+            "Missing dependency: huggingface_hub. Install with `pip install -r requirement.txt`."
         ) from exc
-    return load_dataset("THUDM/LongBench", task, split=split)
+    path = hf_hub_download(
+        repo_id="THUDM/LongBench",
+        repo_type="dataset",
+        filename=f"data/{task}.jsonl",
+        cache_dir=str(cache_dir) if cache_dir else None,
+    )
+    return load_local_task(path)
 
 
 def load_local_task(path: str | Path) -> list[dict[str, Any]]:
