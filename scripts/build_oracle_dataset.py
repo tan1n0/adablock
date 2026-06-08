@@ -68,6 +68,14 @@ def load_dtype(name: str) -> torch.dtype:
     }[name]
 
 
+def normalize_device_map(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if value.lower() in {"none", "null", "false"}:
+        return None
+    return value
+
+
 def iter_texts(path: Path, field: str, max_docs: int | None):
     with path.open("r", encoding="utf-8") as handle:
         for idx, line in enumerate(handle):
@@ -105,10 +113,11 @@ def main() -> None:
             "Install a CUDA-enabled PyTorch build or pass --allow-cpu intentionally."
         )
 
+    device_map = normalize_device_map(args.device_map)
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         torch_dtype=load_dtype(args.dtype),
-        device_map=args.device_map,
+        device_map=device_map,
         attn_implementation="eager",
     )
     if getattr(model, "hf_device_map", None) is None:
