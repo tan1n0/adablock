@@ -44,6 +44,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default=None)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument(
+        "--max-new-tokens-override",
+        type=int,
+        default=None,
+        help="Override per-task max_new_tokens. Useful for debugging answer truncation.",
+    )
     parser.add_argument("--no-chat-template", action="store_true")
     return parser.parse_args()
 
@@ -88,7 +94,7 @@ def main() -> None:
                 encoded = tokenizer(model_input_text, return_tensors="pt", truncation=False)
                 input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
                 attention_mask = torch.ones_like(input_ids, device=model.device)
-                max_new_tokens = TASK_MAX_NEW_TOKENS[task]
+                max_new_tokens = args.max_new_tokens_override or TASK_MAX_NEW_TOKENS[task]
                 with torch.no_grad():
                     generated = model.generate(
                         input_ids=input_ids,

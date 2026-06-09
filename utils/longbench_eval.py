@@ -51,14 +51,18 @@ TASK_PROMPTS = {
         "Question: {input}\nAnswer:"
     ),
     "hotpotqa": (
-        "Answer the question based on the given passages. Only give me the "
-        "answer and do not output any other words.\n\n"
+        "Answer the question based on the given passages. Output only the final "
+        "short answer. Do not explain your reasoning. Do not say that the "
+        "passages do not contain the answer. If multiple passages are needed, "
+        "combine them silently and still output only the answer.\n\n"
         "The following are given passages.\n{context}\n\n"
         "Question: {input}\nAnswer:"
     ),
     "musique": (
-        "Answer the question based on the given passages. Only give me the "
-        "answer and do not output any other words.\n\n"
+        "Answer the question based on the given passages. Output only the final "
+        "short answer. Do not explain your reasoning. Do not say that the "
+        "passages do not contain the answer. If multiple passages are needed, "
+        "combine them silently and still output only the answer.\n\n"
         "The following are given passages.\n{context}\n\n"
         "Question: {input}\nAnswer:"
     ),
