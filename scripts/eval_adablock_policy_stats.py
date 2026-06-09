@@ -18,6 +18,7 @@ from models.adablock_policy import AdaBlockPolicy, AdaBlockPolicyConfig
 from utils.block_oracle import cosine_block_scores, make_block_ranges, score_summary_features
 from utils.longbench_eval import (
     LONG_INPUT_SHORT_OUTPUT_TASKS,
+    build_model_input_text,
     format_longbench_prompt,
     load_dtype,
     load_local_task,
@@ -45,6 +46,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--device-map", default="auto")
     parser.add_argument("--device", default=None)
+    parser.add_argument("--no-chat-template", action="store_true")
     return parser.parse_args()
 
 
@@ -98,7 +100,12 @@ def main() -> None:
 
         for row in tqdm(rows, desc=f"policy-stats:{task}", unit="sample"):
             prompt = format_longbench_prompt(task, row)
-            encoded = tokenizer(prompt, return_tensors="pt", truncation=False)
+            model_input_text = build_model_input_text(
+                tokenizer,
+                prompt,
+                use_chat_template=not args.no_chat_template,
+            )
+            encoded = tokenizer(model_input_text, return_tensors="pt", truncation=False)
             input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
             attention_mask = torch.ones_like(input_ids, device=model.device)
             with torch.no_grad():

@@ -16,6 +16,7 @@ if str(ROOT) not in sys.path:
 from utils.longbench_eval import (
     LONG_INPUT_SHORT_OUTPUT_TASKS,
     TASK_MAX_NEW_TOKENS,
+    build_model_input_text,
     extract_answers,
     format_longbench_prompt,
     load_dtype,
@@ -43,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default=None)
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=1.0)
+    parser.add_argument("--no-chat-template", action="store_true")
     return parser.parse_args()
 
 
@@ -78,7 +80,12 @@ def main() -> None:
         with pred_path.open("w", encoding="utf-8") as out:
             for idx, row in enumerate(tqdm(rows, desc=task, unit="sample")):
                 prompt = format_longbench_prompt(task, row)
-                encoded = tokenizer(prompt, return_tensors="pt", truncation=False)
+                model_input_text = build_model_input_text(
+                    tokenizer,
+                    prompt,
+                    use_chat_template=not args.no_chat_template,
+                )
+                encoded = tokenizer(model_input_text, return_tensors="pt", truncation=False)
                 input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
                 attention_mask = torch.ones_like(input_ids, device=model.device)
                 max_new_tokens = TASK_MAX_NEW_TOKENS[task]
@@ -103,6 +110,8 @@ def main() -> None:
                     json.dumps(
                         {
                             "idx": idx,
+                            "prompt_tokens": int(encoded["input_ids"].shape[-1]),
+                            "used_tokens": int(input_ids.shape[-1]),
                             "prediction": prediction,
                             "answers": answers,
                             "score": score,

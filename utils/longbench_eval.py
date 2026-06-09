@@ -172,6 +172,19 @@ def format_longbench_prompt(task: str, row: dict[str, Any]) -> str:
     )
 
 
+def build_model_input_text(tokenizer, prompt: str, use_chat_template: bool = True) -> str:
+    if not use_chat_template:
+        return prompt
+    if getattr(tokenizer, "chat_template", None) is None:
+        return prompt
+    messages = [{"role": "user", "content": prompt}]
+    return tokenizer.apply_chat_template(
+        messages,
+        tokenize=False,
+        add_generation_prompt=True,
+    )
+
+
 def truncate_middle(input_ids, max_length: int):
     if input_ids.shape[-1] <= max_length:
         return input_ids
