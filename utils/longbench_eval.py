@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 import string
+import zipfile
 from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
@@ -98,6 +99,17 @@ def load_longbench_task(task: str, split: str = "test", cache_dir: str | Path | 
         raise SystemExit(
             "Missing dependency: huggingface_hub/datasets. Install with `pip install -r requirement.txt`."
         ) from exc
+    cache_root = Path(cache_dir) if cache_dir else Path(".cache") / "longbench"
+    extracted_root = cache_root / "extracted"
+    local_candidates = [
+        extracted_root / f"{task}.jsonl",
+        extracted_root / "data" / f"{task}.jsonl",
+    ]
+    for candidate in local_candidates:
+        if candidate.exists():
+            return load_local_task(candidate)
+
+    download_errors: list[str] = []
     try:
         path = hf_hub_download(
             repo_id="zai-org/LongBench",
@@ -106,7 +118,27 @@ def load_longbench_task(task: str, split: str = "test", cache_dir: str | Path | 
             cache_dir=str(cache_dir) if cache_dir else None,
         )
         return list(load_dataset("parquet", data_files=path, split="train"))
-    except Exception:
+    except Exception as exc:
+        download_errors.append(f"parquet: {exc}")
+
+    try:
+        zip_path = hf_hub_download(
+            repo_id="zai-org/LongBench",
+            repo_type="dataset",
+            filename="data.zip",
+            cache_dir=str(cache_dir) if cache_dir else None,
+        )
+        extracted_root.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path) as archive:
+            archive.extractall(extracted_root)
+        for candidate in local_candidates:
+            if candidate.exists():
+                return load_local_task(candidate)
+        raise FileNotFoundError(f"Could not find {task}.jsonl after extracting {zip_path}")
+    except Exception as exc:
+        download_errors.append(f"data.zip: {exc}")
+
+    try:
         path = hf_hub_download(
             repo_id="THUDM/LongBench",
             repo_type="dataset",
@@ -114,6 +146,12 @@ def load_longbench_task(task: str, split: str = "test", cache_dir: str | Path | 
             cache_dir=str(cache_dir) if cache_dir else None,
         )
         return load_local_task(path)
+    except Exception as exc:
+        download_errors.append(f"legacy jsonl: {exc}")
+        raise RuntimeError(
+            f"Failed to load LongBench task {task}. Tried parquet, data.zip, and legacy JSONL. "
+            f"Errors: {' | '.join(download_errors)}"
+        ) from exc
 
 
 def load_local_task(path: str | Path) -> list[dict[str, Any]]:
