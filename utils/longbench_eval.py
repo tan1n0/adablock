@@ -238,6 +238,14 @@ def lcs_length(a: list[str], b: list[str]) -> int:
 
 
 def rouge_l_f1(prediction: str, ground_truth: str) -> float:
+    try:
+        from rouge_score import rouge_scorer
+
+        scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
+        return scorer.score(ground_truth, prediction)["rougeL"].fmeasure
+    except ImportError:
+        pass
+
     pred_tokens = prediction.lower().split()
     truth_tokens = ground_truth.lower().split()
     if not pred_tokens or not truth_tokens:
