@@ -175,15 +175,16 @@ def main() -> None:
             input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
             attention_mask = torch.ones_like(input_ids, device=model.device)
             with torch.no_grad():
-                outputs = model(
+                transformer = getattr(model, "model", model)
+                outputs = transformer(
                     input_ids=input_ids,
                     attention_mask=attention_mask,
                     output_attentions=True,
-                    output_hidden_states=True,
+                    output_hidden_states=False,
                     use_cache=False,
                 )
 
-            hidden = outputs.hidden_states[-1][0].detach().cpu().float()
+            hidden = outputs.last_hidden_state[0].detach().cpu().float()
             attentions = torch.stack([attn[0].detach().cpu().float() for attn in outputs.attentions])
             del outputs
             if not torch.isfinite(hidden).all() or not torch.isfinite(attentions).all():
