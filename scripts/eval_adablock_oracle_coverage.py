@@ -47,6 +47,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample-stride", type=int, default=16)
     parser.add_argument("--budget-tokens", type=int, default=512)
     parser.add_argument("--reuse-threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--fill-budget-with-score",
+        action="store_true",
+        help="After AdaBlock selects blocks, fill remaining budget with cosine-score top blocks.",
+    )
     parser.add_argument("--dtype", default="float32", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--device-map", default="auto")
     parser.add_argument("--device", default=None)
@@ -130,6 +135,25 @@ def coverage_for_selection(block_mass: torch.Tensor, selected: set[int]) -> floa
     return float((block_mass[valid].sum() / total).item())
 
 
+def fill_selection_with_scores(
+    selected: set[int],
+    scores: torch.Tensor,
+    budget: int,
+    max_blocks: int,
+) -> set[int]:
+    if scores.numel() == 0 or budget <= 0:
+        return set()
+    target = min(budget, max_blocks, scores.numel())
+    filled = {idx for idx in selected if 0 <= idx < scores.numel()}
+    if len(filled) >= target:
+        return set(list(filled)[:target])
+    for idx in torch.argsort(scores, descending=True).tolist():
+        filled.add(idx)
+        if len(filled) >= target:
+            break
+    return filled
+
+
 def main() -> None:
     args = parse_args()
     policy_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -163,6 +187,10 @@ def main() -> None:
         reuse_cov_sum = 0.0
         reuse_steps = 0
         adablock_blocks_sum = 0.0
+        adablock_filled_cov_sum = 0.0
+        reuse_filled_cov_sum = 0.0
+        adablock_filled_blocks_sum = 0.0
+        reuse_filled_blocks_sum = 0.0
 
         for row in tqdm(rows, desc=f"coverage:{task}", unit="sample"):
             prompt = format_longbench_prompt(task, row)
@@ -262,12 +290,30 @@ def main() -> None:
                     reuse_steps += 1
                 else:
                     reused_selection = current_selection
+                if args.fill_budget_with_score:
+                    filled_selection = fill_selection_with_scores(
+                        current_selection,
+                        scores,
+                        budget=max_blocks,
+                        max_blocks=max_blocks,
+                    )
+                    reused_filled_selection = fill_selection_with_scores(
+                        reused_selection,
+                        scores,
+                        budget=max_blocks,
+                        max_blocks=max_blocks,
+                    )
 
                 fixed_cov_sum += fixed_coverage
                 score_topk_cov_sum += score_topk_coverage
                 adablock_cov_sum += coverage_for_selection(block_mass, current_selection)
                 reuse_cov_sum += coverage_for_selection(block_mass, reused_selection)
                 adablock_blocks_sum += len(reused_selection)
+                if args.fill_budget_with_score:
+                    adablock_filled_cov_sum += coverage_for_selection(block_mass, filled_selection)
+                    reuse_filled_cov_sum += coverage_for_selection(block_mass, reused_filled_selection)
+                    adablock_filled_blocks_sum += len(filled_selection)
+                    reuse_filled_blocks_sum += len(reused_filled_selection)
                 total_steps += 1
                 previous_hidden = hidden[t]
                 previous_adablock_selection = current_selection
@@ -287,6 +333,21 @@ def main() -> None:
             "avg_adablock_blocks": adablock_blocks_sum / max(total_steps, 1),
             "avg_adablock_tokens": adablock_blocks_sum * args.block_size / max(total_steps, 1),
         }
+        if args.fill_budget_with_score:
+            results[task].update(
+                {
+                    "adablock_filled_coverage": adablock_filled_cov_sum / max(total_steps, 1),
+                    "adablock_reuse_filled_coverage": reuse_filled_cov_sum / max(total_steps, 1),
+                    "avg_adablock_filled_blocks": adablock_filled_blocks_sum / max(total_steps, 1),
+                    "avg_adablock_filled_tokens": adablock_filled_blocks_sum
+                    * args.block_size
+                    / max(total_steps, 1),
+                    "avg_adablock_reuse_filled_blocks": reuse_filled_blocks_sum / max(total_steps, 1),
+                    "avg_adablock_reuse_filled_tokens": reuse_filled_blocks_sum
+                    * args.block_size
+                    / max(total_steps, 1),
+                }
+            )
         print({"task": task, **results[task]})
 
     output_path = Path(args.output_json)
