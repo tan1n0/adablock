@@ -11,6 +11,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from utils.longbench_eval import extract_answers, load_local_task
+
 
 DEFAULT_NEEDLES = (
     "The hidden access code is ADBLOCK-314.",
@@ -31,6 +33,15 @@ FILLER_SENTENCES = (
 )
 
 
+LONGBENCH_LOCAL_SOURCES = (
+    "longbench_narrativeqa",
+    "longbench_qasper",
+    "longbench_multifieldqa_en",
+    "longbench_hotpotqa",
+    "longbench_musique",
+)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Prepare non-LongBench JSONL training prompts for AdaBlock oracle generation."
@@ -40,7 +51,7 @@ def parse_args() -> argparse.Namespace:
         "--sources",
         nargs="+",
         default=["qasper", "govreport", "needle"],
-        choices=["qasper", "govreport", "narrativeqa", "needle"],
+        choices=["qasper", "govreport", "narrativeqa", "needle", *LONGBENCH_LOCAL_SOURCES],
     )
     parser.add_argument("--split", default="train")
     parser.add_argument("--max-samples-per-source", type=int, default=200)
@@ -59,6 +70,11 @@ def parse_args() -> argparse.Namespace:
         "--strict-sources",
         action="store_true",
         help="Fail immediately when a Hugging Face source cannot be loaded.",
+    )
+    parser.add_argument(
+        "--longbench-local-dir",
+        default=None,
+        help="Directory containing local LongBench JSONL task files such as hotpotqa.jsonl.",
     )
     return parser.parse_args()
 
@@ -151,6 +167,17 @@ def format_narrativeqa(row: dict[str, Any], max_chars: int) -> str | None:
     return limit_chars(text, max_chars)
 
 
+def format_longbench_qa_row(row: dict[str, Any], max_chars: int) -> str | None:
+    context = clean_text(row.get("context"))
+    question = clean_text(row.get("input") or row.get("question"))
+    answers = extract_answers(row)
+    answer = clean_text(answers[0]) if answers else ""
+    if not context or not question:
+        return None
+    text = f"Question:\n{question}\n\nContext:\n{context}\n\nAnswer:\n{answer}"
+    return limit_chars(text, max_chars)
+
+
 def import_datasets():
     try:
         from datasets import load_dataset
@@ -178,6 +205,27 @@ def load_hf_source(source: str, split: str, max_samples: int, max_chars: int) ->
     emitted = 0
     for row in dataset:
         text = formatter(row, max_chars)
+        if text:
+            yield {"source": source, "text": text}
+            emitted += 1
+            if emitted >= max_samples:
+                break
+
+
+def load_longbench_local_source(
+    source: str,
+    local_dir: str | Path | None,
+    max_samples: int,
+    max_chars: int,
+) -> Iterable[dict[str, str]]:
+    if not local_dir:
+        raise ValueError(f"Source {source} requires --longbench-local-dir")
+    task_name = source.removeprefix("longbench_")
+    path = Path(local_dir) / f"{task_name}.jsonl"
+    rows = load_local_task(path)
+    emitted = 0
+    for row in rows:
+        text = format_longbench_qa_row(row, max_chars)
         if text:
             yield {"source": source, "text": text}
             emitted += 1
@@ -236,6 +284,13 @@ def main() -> None:
         for source in args.sources:
             if source == "needle":
                 rows = load_needle_source(args)
+            elif source in LONGBENCH_LOCAL_SOURCES:
+                rows = load_longbench_local_source(
+                    source=source,
+                    local_dir=args.longbench_local_dir,
+                    max_samples=args.max_samples_per_source,
+                    max_chars=args.max_chars,
+                )
             else:
                 rows = load_hf_source(
                     source,
