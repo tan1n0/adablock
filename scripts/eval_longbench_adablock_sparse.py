@@ -49,6 +49,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reuse-threshold", type=float, default=0.8)
     parser.add_argument("--fill-budget-with-score", action="store_true")
     parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
+    parser.add_argument(
+        "--attn-implementation",
+        default=None,
+        choices=["eager", "sdpa", "flash_attention_2", None],
+        help="Optional attention backend override. Leave unset to use the model default.",
+    )
     parser.add_argument("--device-map", default="auto")
     parser.add_argument("--device", default=None)
     parser.add_argument("--temperature", type=float, default=0.0)
@@ -214,18 +220,20 @@ def run_sparse_decode(
         raise ValueError("run_sparse_decode requires caller to pass task max_new_tokens via args.max_new_tokens_override")
 
     with torch.no_grad():
-        outputs = model(
+        transformer = getattr(model, "model", model)
+        outputs = transformer(
             input_ids=input_ids,
             attention_mask=attention_mask,
             use_cache=True,
-            output_hidden_states=True,
+            output_hidden_states=False,
         )
 
     full_past_key_values = tuple(
         (key.detach().cpu(), value.detach().cpu()) for key, value in normalize_past_key_values(outputs.past_key_values)
     )
-    hidden_history = outputs.hidden_states[-1][0].detach().cpu().float()
-    next_token_id = sample_next_token(outputs.logits[0, -1], args.temperature, args.top_p)
+    hidden_history = outputs.last_hidden_state[0].detach().cpu().float()
+    last_logits = model.lm_head(outputs.last_hidden_state[:, -1:, :])[0, -1]
+    next_token_id = sample_next_token(last_logits, args.temperature, args.top_p)
     generated_ids = [next_token_id]
 
     oracle_config = OracleConfig(block_size=args.block_size, local_window_blocks=args.local_window_blocks)
@@ -307,21 +315,22 @@ def run_sparse_decode(
         position_ids = torch.tensor([[history_len]], dtype=torch.long, device=model.device)
 
         with torch.no_grad():
-            step_outputs = model(
+            step_outputs = transformer(
                 input_ids=step_input_ids,
                 attention_mask=step_attention_mask,
                 position_ids=position_ids,
                 past_key_values=sparse_past,
                 use_cache=True,
-                output_hidden_states=True,
+                output_hidden_states=False,
             )
 
         step_past = normalize_past_key_values(step_outputs.past_key_values)
         full_past_key_values = append_last_kv(full_past_key_values, step_past)
-        new_hidden = step_outputs.hidden_states[-1][0, -1].detach().cpu().float().unsqueeze(0)
+        new_hidden = step_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)
         hidden_history = torch.cat([hidden_history, new_hidden], dim=0)
         previous_hidden = hidden_history[-2]
-        next_token_id = sample_next_token(step_outputs.logits[0, -1], args.temperature, args.top_p)
+        step_logits = model.lm_head(step_outputs.last_hidden_state[:, -1:, :])[0, -1]
+        next_token_id = sample_next_token(step_logits, args.temperature, args.top_p)
         generated_ids.append(next_token_id)
         if next_token_id == tokenizer.eos_token_id:
             break
@@ -350,7 +359,7 @@ def main() -> None:
         args.model_name,
         torch_dtype=load_dtype(args.dtype),
         device_map=normalize_device_map(args.device_map),
-        attn_implementation="eager",
+        attn_implementation=args.attn_implementation,
     )
     if getattr(model, "hf_device_map", None) is None:
         model.to(args.device or ("cuda:0" if torch.cuda.is_available() else "cpu"))

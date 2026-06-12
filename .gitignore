@@ -15,3 +15,4 @@ checkpoints/
 
 .cache/
 .huggingface/
+EXPERIMENT_LOG.local.md
