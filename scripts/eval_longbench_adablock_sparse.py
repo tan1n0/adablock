@@ -79,6 +79,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--top-p", type=float, default=1.0)
     parser.add_argument("--max-new-tokens-override", type=int, default=None)
     parser.add_argument("--no-chat-template", action="store_true")
+    parser.add_argument(
+        "--debug-compare-full",
+        action="store_true",
+        help="Collect token-by-token full-vs-sparse decoding traces for debugging.",
+    )
+    parser.add_argument(
+        "--debug-max-steps",
+        type=int,
+        default=20,
+        help="Maximum generated steps to retain in the debug token trace.",
+    )
     return parser.parse_args()
 
 
@@ -243,6 +254,83 @@ def sample_next_token(logits: torch.Tensor, temperature: float, top_p: float) ->
     return int(torch.multinomial(probs, num_samples=1).item())
 
 
+def decode_trace_entry(tokenizer, token_id: int) -> str:
+    return tokenizer.decode([token_id], skip_special_tokens=False)
+
+
+def run_full_decode_trace(
+    model,
+    tokenizer,
+    prompt_text: str,
+    args: argparse.Namespace,
+) -> tuple[str, list[dict[str, object]]]:
+    encoded = tokenizer(prompt_text, return_tensors="pt", truncation=False)
+    input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
+    attention_mask = torch.ones_like(input_ids, device=model.device)
+    max_new_tokens = args.max_new_tokens_override
+    if max_new_tokens is None:
+        raise ValueError("run_full_decode_trace requires caller to pass task max_new_tokens via args.max_new_tokens_override")
+
+    transformer = getattr(model, "model", model)
+    with torch.no_grad():
+        outputs = transformer(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            use_cache=True,
+            output_hidden_states=False,
+        )
+
+    generated_ids: list[int] = []
+    trace: list[dict[str, object]] = []
+    next_token_id = sample_next_token(model.lm_head(outputs.last_hidden_state[:, -1:, :])[0, -1], args.temperature, args.top_p)
+    generated_ids.append(next_token_id)
+    if len(trace) < args.debug_max_steps:
+        trace.append(
+            {
+                "step": 0,
+                "token_id": next_token_id,
+                "token_text": decode_trace_entry(tokenizer, next_token_id),
+            }
+        )
+    past_key_values = normalize_past_key_values(outputs.past_key_values)
+    history_len = int(input_ids.shape[-1])
+
+    for step in range(1, max_new_tokens):
+        step_input_ids = torch.tensor([[generated_ids[-1]]], device=model.device)
+        step_attention_mask = torch.ones((1, history_len + 1), dtype=torch.long, device=model.device)
+        position_ids = torch.tensor([[history_len]], dtype=torch.long, device=model.device)
+        with torch.no_grad():
+            step_outputs = transformer(
+                input_ids=step_input_ids,
+                attention_mask=step_attention_mask,
+                position_ids=position_ids,
+                past_key_values=to_model_cache(past_key_values),
+                use_cache=True,
+                output_hidden_states=False,
+            )
+        next_token_id = sample_next_token(
+            model.lm_head(step_outputs.last_hidden_state[:, -1:, :])[0, -1],
+            args.temperature,
+            args.top_p,
+        )
+        generated_ids.append(next_token_id)
+        if len(trace) < args.debug_max_steps:
+            trace.append(
+                {
+                    "step": step,
+                    "token_id": next_token_id,
+                    "token_text": decode_trace_entry(tokenizer, next_token_id),
+                }
+            )
+        if next_token_id == tokenizer.eos_token_id:
+            break
+        past_key_values = normalize_past_key_values(step_outputs.past_key_values)
+        history_len += 1
+
+    prediction = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
+    return prediction, trace
+
+
 def run_sparse_decode(
     model,
     tokenizer,
@@ -250,7 +338,7 @@ def run_sparse_decode(
     policy_device: torch.device,
     prompt_text: str,
     args: argparse.Namespace,
-) -> tuple[str, dict[str, float]]:
+) -> tuple[str, dict[str, float], list[dict[str, object]]]:
     encoded = tokenizer(prompt_text, return_tensors="pt", truncation=False)
     input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
     attention_mask = torch.ones_like(input_ids, device=model.device)
@@ -284,6 +372,18 @@ def run_sparse_decode(
     selected_blocks_sum = 0.0
     selected_steps = 0
     reuse_steps = 0
+    trace: list[dict[str, object]] = []
+    if args.debug_max_steps > 0:
+        trace.append(
+            {
+                "step": 0,
+                "token_id": next_token_id,
+                "token_text": decode_trace_entry(tokenizer, next_token_id),
+                "selected_blocks": [],
+                "selected_block_count": 0,
+                "selected_token_count": 0,
+            }
+        )
 
     for _ in range(max_new_tokens - 1):
         history_len = hidden_history.shape[0]
@@ -407,6 +507,17 @@ def run_sparse_decode(
         step_logits = model.lm_head(step_outputs.last_hidden_state[:, -1:, :])[0, -1]
         next_token_id = sample_next_token(step_logits, args.temperature, args.top_p)
         generated_ids.append(next_token_id)
+        if len(trace) < args.debug_max_steps:
+            trace.append(
+                {
+                    "step": len(generated_ids) - 1,
+                    "token_id": next_token_id,
+                    "token_text": decode_trace_entry(tokenizer, next_token_id),
+                    "selected_blocks": sorted(selected_blocks),
+                    "selected_block_count": len(selected_blocks),
+                    "selected_token_count": len(token_indices),
+                }
+            )
         if next_token_id == tokenizer.eos_token_id:
             break
         del sparse_past, step_outputs
@@ -422,7 +533,7 @@ def run_sparse_decode(
         "prompt_tokens": int(encoded["input_ids"].shape[-1]),
         "used_prompt_tokens": int(input_ids.shape[-1]),
     }
-    return prediction, stats
+    return prediction, stats, trace
 
 
 def main() -> None:
@@ -474,7 +585,7 @@ def main() -> None:
                     prompt,
                     use_chat_template=not args.no_chat_template,
                 )
-                prediction, stats = run_sparse_decode(
+                prediction, stats, sparse_trace = run_sparse_decode(
                     model=model,
                     tokenizer=tokenizer,
                     policy=policy,
@@ -482,6 +593,42 @@ def main() -> None:
                     prompt_text=model_input_text,
                     args=task_args,
                 )
+                debug_payload = None
+                if args.debug_compare_full:
+                    full_prediction, full_trace = run_full_decode_trace(
+                        model=model,
+                        tokenizer=tokenizer,
+                        prompt_text=model_input_text,
+                        args=task_args,
+                    )
+                    max_steps = min(len(sparse_trace), len(full_trace), args.debug_max_steps)
+                    comparison = []
+                    divergence_step = None
+                    for step_idx in range(max_steps):
+                        sparse_step = sparse_trace[step_idx]
+                        full_step = full_trace[step_idx]
+                        match = sparse_step["token_id"] == full_step["token_id"]
+                        if divergence_step is None and not match:
+                            divergence_step = step_idx
+                        comparison.append(
+                            {
+                                "step": step_idx,
+                                "match": match,
+                                "sparse_token_id": sparse_step["token_id"],
+                                "sparse_token_text": sparse_step["token_text"],
+                                "full_token_id": full_step["token_id"],
+                                "full_token_text": full_step["token_text"],
+                                "selected_blocks": sparse_step["selected_blocks"],
+                                "selected_block_count": sparse_step["selected_block_count"],
+                                "selected_token_count": sparse_step["selected_token_count"],
+                            }
+                        )
+                    debug_payload = {
+                        "full_prediction": full_prediction,
+                        "sparse_prediction": prediction,
+                        "divergence_step": divergence_step,
+                        "compared_steps": comparison,
+                    }
                 answers = extract_answers(row)
                 score = score_prediction(task, prediction, answers)
                 task_scores.append(score)
@@ -496,6 +643,7 @@ def main() -> None:
                             "answers": answers,
                             "score": score,
                             **stats,
+                            **({"debug_trace": debug_payload} if debug_payload is not None else {}),
                         },
                         ensure_ascii=False,
                     )
