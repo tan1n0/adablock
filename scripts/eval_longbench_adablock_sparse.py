@@ -187,19 +187,32 @@ def to_model_cache(past_key_values):
     return DynamicCache.from_legacy_cache(past_key_values)
 
 
+def get_layer_devices(model) -> list[torch.device]:
+    transformer = getattr(model, "model", model)
+    devices: list[torch.device] = []
+    for layer in transformer.layers:
+        try:
+            device = next(layer.parameters()).device
+        except StopIteration:
+            device = torch.device(getattr(model, "device", "cpu"))
+        devices.append(device)
+    return devices
+
+
 def slice_past_key_values(
     past_key_values,
     token_indices: list[int],
-    device: torch.device,
+    layer_devices: list[torch.device],
 ):
     index = torch.tensor(token_indices, dtype=torch.long)
     sliced = []
-    for key, value in past_key_values:
+    for layer_idx, (key, value) in enumerate(past_key_values):
         layer_index = index.to(key.device)
+        target_device = layer_devices[layer_idx] if layer_idx < len(layer_devices) else key.device
         sliced.append(
             (
-                key.index_select(2, layer_index).to(device),
-                value.index_select(2, layer_index).to(device),
+                key.index_select(2, layer_index).to(target_device),
+                value.index_select(2, layer_index).to(target_device),
             )
         )
     return tuple(sliced)
@@ -265,6 +278,7 @@ def run_sparse_decode(
     oracle_config = OracleConfig(block_size=args.block_size, local_window_blocks=args.local_window_blocks)
     bucket_values = list(policy.config.budget_buckets)
     max_blocks = args.budget_tokens // args.block_size
+    layer_devices = get_layer_devices(model)
     previous_hidden = None
     previous_selection: set[int] = set()
     selected_blocks_sum = 0.0
@@ -284,7 +298,7 @@ def run_sparse_decode(
             scores = cosine_block_scores(hidden_history, candidate_ranges, current_token_index)
             if args.selection_mode == "oracle_topk":
                 dense_token_indices = list(range(history_len))
-                dense_past = slice_past_key_values(full_past_key_values, dense_token_indices, model.device)
+                dense_past = slice_past_key_values(full_past_key_values, dense_token_indices, layer_devices)
                 dense_step_input_ids = torch.tensor([[generated_ids[-1]]], device=model.device)
                 dense_attention_mask = torch.ones((1, history_len + 1), dtype=torch.long, device=model.device)
                 dense_position_ids = torch.tensor([[history_len]], dtype=torch.long, device=model.device)
@@ -369,7 +383,7 @@ def run_sparse_decode(
 
         selected_blocks_sum += len(selected_blocks)
         selected_steps += 1
-        sparse_past = slice_past_key_values(full_past_key_values, token_indices, model.device)
+        sparse_past = slice_past_key_values(full_past_key_values, token_indices, layer_devices)
         step_input_ids = torch.tensor([[generated_ids[-1]]], device=model.device)
         step_attention_mask = torch.ones((1, len(token_indices) + 1), dtype=torch.long, device=model.device)
         position_ids = torch.tensor([[history_len]], dtype=torch.long, device=model.device)
