@@ -90,6 +90,17 @@ def parse_args() -> argparse.Namespace:
         default=20,
         help="Maximum generated steps to retain in the debug token trace.",
     )
+    parser.add_argument(
+        "--debug-logits-topk",
+        type=int,
+        default=10,
+        help="How many top logits to retain per debug step.",
+    )
+    parser.add_argument(
+        "--debug-teacher-force-full-prefix",
+        action="store_true",
+        help="Run an additional sparse trace that always feeds the full-decoding prefix tokens.",
+    )
     return parser.parse_args()
 
 
@@ -258,12 +269,25 @@ def decode_trace_entry(tokenizer, token_id: int) -> str:
     return tokenizer.decode([token_id], skip_special_tokens=False)
 
 
+def topk_logits_entries(tokenizer, logits: torch.Tensor, k: int) -> list[dict[str, object]]:
+    topk = min(k, int(logits.shape[-1]))
+    values, indices = torch.topk(logits.float(), k=topk)
+    return [
+        {
+            "token_id": int(token_id),
+            "token_text": decode_trace_entry(tokenizer, int(token_id)),
+            "logit": float(logit),
+        }
+        for token_id, logit in zip(indices.tolist(), values.tolist())
+    ]
+
+
 def run_full_decode_trace(
     model,
     tokenizer,
     prompt_text: str,
     args: argparse.Namespace,
-) -> tuple[str, list[dict[str, object]]]:
+) -> tuple[str, list[dict[str, object]], list[int]]:
     encoded = tokenizer(prompt_text, return_tensors="pt", truncation=False)
     input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
     attention_mask = torch.ones_like(input_ids, device=model.device)
@@ -282,7 +306,8 @@ def run_full_decode_trace(
 
     generated_ids: list[int] = []
     trace: list[dict[str, object]] = []
-    next_token_id = sample_next_token(model.lm_head(outputs.last_hidden_state[:, -1:, :])[0, -1], args.temperature, args.top_p)
+    first_logits = model.lm_head(outputs.last_hidden_state[:, -1:, :])[0, -1]
+    next_token_id = sample_next_token(first_logits, args.temperature, args.top_p)
     generated_ids.append(next_token_id)
     if len(trace) < args.debug_max_steps:
         trace.append(
@@ -290,6 +315,7 @@ def run_full_decode_trace(
                 "step": 0,
                 "token_id": next_token_id,
                 "token_text": decode_trace_entry(tokenizer, next_token_id),
+                "topk_logits": topk_logits_entries(tokenizer, first_logits, args.debug_logits_topk),
             }
         )
     past_key_values = normalize_past_key_values(outputs.past_key_values)
@@ -308,11 +334,8 @@ def run_full_decode_trace(
                 use_cache=True,
                 output_hidden_states=False,
             )
-        next_token_id = sample_next_token(
-            model.lm_head(step_outputs.last_hidden_state[:, -1:, :])[0, -1],
-            args.temperature,
-            args.top_p,
-        )
+        step_logits = model.lm_head(step_outputs.last_hidden_state[:, -1:, :])[0, -1]
+        next_token_id = sample_next_token(step_logits, args.temperature, args.top_p)
         generated_ids.append(next_token_id)
         if len(trace) < args.debug_max_steps:
             trace.append(
@@ -320,6 +343,7 @@ def run_full_decode_trace(
                     "step": step,
                     "token_id": next_token_id,
                     "token_text": decode_trace_entry(tokenizer, next_token_id),
+                    "topk_logits": topk_logits_entries(tokenizer, step_logits, args.debug_logits_topk),
                 }
             )
         if next_token_id == tokenizer.eos_token_id:
@@ -328,7 +352,7 @@ def run_full_decode_trace(
         history_len += 1
 
     prediction = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
-    return prediction, trace
+    return prediction, trace, generated_ids
 
 
 def run_sparse_decode(
@@ -338,6 +362,7 @@ def run_sparse_decode(
     policy_device: torch.device,
     prompt_text: str,
     args: argparse.Namespace,
+    teacher_forced_ids: list[int] | None = None,
 ) -> tuple[str, dict[str, float], list[dict[str, object]]]:
     encoded = tokenizer(prompt_text, return_tensors="pt", truncation=False)
     input_ids = truncate_middle(encoded["input_ids"], args.max_input_length).to(model.device)
@@ -362,6 +387,7 @@ def run_sparse_decode(
     last_logits = model.lm_head(outputs.last_hidden_state[:, -1:, :])[0, -1]
     next_token_id = sample_next_token(last_logits, args.temperature, args.top_p)
     generated_ids = [next_token_id]
+    current_input_token = teacher_forced_ids[0] if teacher_forced_ids else generated_ids[-1]
 
     oracle_config = OracleConfig(block_size=args.block_size, local_window_blocks=args.local_window_blocks)
     bucket_values = list(policy.config.budget_buckets)
@@ -382,6 +408,7 @@ def run_sparse_decode(
                 "selected_blocks": [],
                 "selected_block_count": 0,
                 "selected_token_count": 0,
+                "topk_logits": topk_logits_entries(tokenizer, last_logits, args.debug_logits_topk),
             }
         )
 
@@ -399,7 +426,7 @@ def run_sparse_decode(
             if args.selection_mode == "oracle_topk":
                 dense_token_indices = list(range(history_len))
                 dense_past = slice_past_key_values(full_past_key_values, dense_token_indices, layer_devices)
-                dense_step_input_ids = torch.tensor([[generated_ids[-1]]], device=model.device)
+                dense_step_input_ids = torch.tensor([[current_input_token]], device=model.device)
                 dense_attention_mask = torch.ones((1, history_len + 1), dtype=torch.long, device=model.device)
                 dense_position_ids = torch.tensor([[history_len]], dtype=torch.long, device=model.device)
                 with torch.no_grad():
@@ -484,7 +511,7 @@ def run_sparse_decode(
         selected_blocks_sum += len(selected_blocks)
         selected_steps += 1
         sparse_past = slice_past_key_values(full_past_key_values, token_indices, layer_devices)
-        step_input_ids = torch.tensor([[generated_ids[-1]]], device=model.device)
+        step_input_ids = torch.tensor([[current_input_token]], device=model.device)
         step_attention_mask = torch.ones((1, len(token_indices) + 1), dtype=torch.long, device=model.device)
         position_ids = torch.tensor([[history_len]], dtype=torch.long, device=model.device)
 
@@ -516,9 +543,17 @@ def run_sparse_decode(
                     "selected_blocks": sorted(selected_blocks),
                     "selected_block_count": len(selected_blocks),
                     "selected_token_count": len(token_indices),
+                    "topk_logits": topk_logits_entries(tokenizer, step_logits, args.debug_logits_topk),
                 }
             )
-        if next_token_id == tokenizer.eos_token_id:
+        next_teacher_index = len(generated_ids) - 1
+        if teacher_forced_ids and next_teacher_index < len(teacher_forced_ids):
+            current_input_token = teacher_forced_ids[next_teacher_index]
+        else:
+            current_input_token = next_token_id
+        if next_token_id == tokenizer.eos_token_id and not teacher_forced_ids:
+            break
+        if teacher_forced_ids and next_teacher_index >= len(teacher_forced_ids):
             break
         del sparse_past, step_outputs
         if torch.cuda.is_available():
@@ -595,7 +630,7 @@ def main() -> None:
                 )
                 debug_payload = None
                 if args.debug_compare_full:
-                    full_prediction, full_trace = run_full_decode_trace(
+                    full_prediction, full_trace, full_generated_ids = run_full_decode_trace(
                         model=model,
                         tokenizer=tokenizer,
                         prompt_text=model_input_text,
@@ -629,6 +664,43 @@ def main() -> None:
                         "divergence_step": divergence_step,
                         "compared_steps": comparison,
                     }
+                    if args.debug_teacher_force_full_prefix:
+                        teacher_prediction, _teacher_stats, teacher_sparse_trace = run_sparse_decode(
+                            model=model,
+                            tokenizer=tokenizer,
+                            policy=policy,
+                            policy_device=policy_device,
+                            prompt_text=model_input_text,
+                            args=task_args,
+                            teacher_forced_ids=full_generated_ids,
+                        )
+                        teacher_max_steps = min(len(teacher_sparse_trace), len(full_trace), args.debug_max_steps)
+                        teacher_comparison = []
+                        teacher_divergence_step = None
+                        for step_idx in range(teacher_max_steps):
+                            sparse_step = teacher_sparse_trace[step_idx]
+                            full_step = full_trace[step_idx]
+                            match = sparse_step["token_id"] == full_step["token_id"]
+                            if teacher_divergence_step is None and not match:
+                                teacher_divergence_step = step_idx
+                            teacher_comparison.append(
+                                {
+                                    "step": step_idx,
+                                    "match": match,
+                                    "sparse_token_id": sparse_step["token_id"],
+                                    "sparse_token_text": sparse_step["token_text"],
+                                    "full_token_id": full_step["token_id"],
+                                    "full_token_text": full_step["token_text"],
+                                    "selected_blocks": sparse_step["selected_blocks"],
+                                    "selected_block_count": sparse_step["selected_block_count"],
+                                    "selected_token_count": sparse_step["selected_token_count"],
+                                    "sparse_topk_logits": sparse_step["topk_logits"],
+                                    "full_topk_logits": full_step["topk_logits"],
+                                }
+                            )
+                        debug_payload["teacher_forced_sparse_prediction"] = teacher_prediction
+                        debug_payload["teacher_forced_divergence_step"] = teacher_divergence_step
+                        debug_payload["teacher_forced_compared_steps"] = teacher_comparison
                 answers = extract_answers(row)
                 score = score_prediction(task, prediction, answers)
                 task_scores.append(score)
