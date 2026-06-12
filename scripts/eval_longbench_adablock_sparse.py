@@ -18,7 +18,15 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from models.adablock_policy import AdaBlockPolicy, AdaBlockPolicyConfig
-from utils.block_oracle import OracleConfig, block_categories, cosine_block_scores, make_block_ranges, score_summary_features
+from utils.block_oracle import (
+    OracleConfig,
+    aggregate_block_mass,
+    block_categories,
+    cosine_block_scores,
+    make_block_ranges,
+    score_summary_features,
+    top_blocks,
+)
 from utils.longbench_eval import (
     LONG_INPUT_SHORT_OUTPUT_TASKS,
     TASK_MAX_NEW_TOKENS,
@@ -52,6 +60,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--budget-tokens", type=int, default=512)
     parser.add_argument("--reuse-threshold", type=float, default=0.8)
     parser.add_argument("--fill-budget-with-score", action="store_true")
+    parser.add_argument(
+        "--selection-mode",
+        default="policy",
+        choices=["policy", "oracle_topk"],
+        help="Block selection strategy for sparse decoding.",
+    )
     parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
     parser.add_argument(
         "--attn-implementation",
@@ -268,56 +282,85 @@ def run_sparse_decode(
             selected_blocks = set(range(len(candidate_ranges)))
         else:
             scores = cosine_block_scores(hidden_history, candidate_ranges, current_token_index)
-            score_features = score_summary_features(scores).unsqueeze(0)
-            if previous_hidden is None:
-                query_drift = torch.tensor([1.0])
+            if args.selection_mode == "oracle_topk":
+                dense_token_indices = list(range(history_len))
+                dense_past = slice_past_key_values(full_past_key_values, dense_token_indices, model.device)
+                dense_step_input_ids = torch.tensor([[generated_ids[-1]]], device=model.device)
+                dense_attention_mask = torch.ones((1, history_len + 1), dtype=torch.long, device=model.device)
+                dense_position_ids = torch.tensor([[history_len]], dtype=torch.long, device=model.device)
+                with torch.no_grad():
+                    dense_outputs = transformer(
+                        input_ids=dense_step_input_ids,
+                        attention_mask=dense_attention_mask,
+                        position_ids=dense_position_ids,
+                        past_key_values=to_model_cache(dense_past),
+                        use_cache=True,
+                        output_attentions=True,
+                        output_hidden_states=False,
+                    )
+                dense_attentions = torch.stack([attn[0].detach().cpu().float() for attn in dense_outputs.attentions])
+                dense_mean_attention = dense_attentions.mean(dim=(0, 1))
+                token_attention = dense_mean_attention[0, :history_len]
+                block_mass = aggregate_block_mass(token_attention, candidate_ranges)
+                block_mass = block_mass / block_mass.sum().clamp_min(1e-8)
+                selected_blocks = set(top_blocks(block_mass, max_blocks))
+                dense_step_past = normalize_past_key_values(dense_outputs.past_key_values)
+                full_past_key_values = append_last_kv(full_past_key_values, dense_step_past)
+                new_hidden = dense_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)
+                hidden_history = torch.cat([hidden_history, new_hidden], dim=0)
+                previous_hidden = hidden_history[-2]
+                token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             else:
-                query_drift = torch.tensor(
-                    [
-                        1.0
-                        - torch.nn.functional.cosine_similarity(
-                            hidden_history[current_token_index].unsqueeze(0), previous_hidden.unsqueeze(0), dim=-1
-                        ).item()
-                    ]
+                score_features = score_summary_features(scores).unsqueeze(0)
+                if previous_hidden is None:
+                    query_drift = torch.tensor([1.0])
+                else:
+                    query_drift = torch.tensor(
+                        [
+                            1.0
+                            - torch.nn.functional.cosine_similarity(
+                                hidden_history[current_token_index].unsqueeze(0), previous_hidden.unsqueeze(0), dim=-1
+                            ).item()
+                        ]
+                    )
+                high_hit_count = max(1, int(0.1 * len(candidate_ranges)))
+                high_hit_blocks = set(torch.topk(scores, k=min(high_hit_count, scores.numel())).indices.tolist())
+                categories = block_categories(
+                    num_blocks=len(candidate_ranges),
+                    prompt_blocks=len(block_ranges),
+                    current_block=current_block,
+                    high_hit_blocks=high_hit_blocks,
+                    config=oracle_config,
                 )
-            high_hit_count = max(1, int(0.1 * len(candidate_ranges)))
-            high_hit_blocks = set(torch.topk(scores, k=min(high_hit_count, scores.numel())).indices.tolist())
-            categories = block_categories(
-                num_blocks=len(candidate_ranges),
-                prompt_blocks=len(block_ranges),
-                current_block=current_block,
-                high_hit_blocks=high_hit_blocks,
-                config=oracle_config,
-            )
-            with torch.no_grad():
-                policy_outputs = policy(
-                    hidden_state=hidden_history[current_token_index].unsqueeze(0).to(policy_device),
-                    query_drift=query_drift.to(policy_device),
-                    score_features=score_features.to(policy_device),
-                )
-            bucket_idx = int(policy_outputs["budget_prob"].argmax(dim=-1).item())
-            predicted_k = min(bucket_values[bucket_idx], max_blocks)
-            selected_blocks = category_allocate(
-                scores=scores,
-                categories=categories,
-                category_prob=policy_outputs["category_prob"][0].detach().cpu(),
-                budget=predicted_k,
-                max_blocks=max_blocks,
-            )
-            selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
-            reuse = float(policy_outputs["reuse_prob"].item()) > args.reuse_threshold
-            if reuse and previous_selection:
-                selected_blocks = set(previous_selection)
-                reuse_steps += 1
-            if args.fill_budget_with_score:
-                selected_blocks = fill_selection_with_scores(
-                    selected_blocks,
-                    scores,
-                    budget=max_blocks,
+                with torch.no_grad():
+                    policy_outputs = policy(
+                        hidden_state=hidden_history[current_token_index].unsqueeze(0).to(policy_device),
+                        query_drift=query_drift.to(policy_device),
+                        score_features=score_features.to(policy_device),
+                    )
+                bucket_idx = int(policy_outputs["budget_prob"].argmax(dim=-1).item())
+                predicted_k = min(bucket_values[bucket_idx], max_blocks)
+                selected_blocks = category_allocate(
+                    scores=scores,
+                    categories=categories,
+                    category_prob=policy_outputs["category_prob"][0].detach().cpu(),
+                    budget=predicted_k,
                     max_blocks=max_blocks,
                 )
-            token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
-            previous_selection = set(selected_blocks)
+                selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
+                reuse = float(policy_outputs["reuse_prob"].item()) > args.reuse_threshold
+                if reuse and previous_selection:
+                    selected_blocks = set(previous_selection)
+                    reuse_steps += 1
+                if args.fill_budget_with_score:
+                    selected_blocks = fill_selection_with_scores(
+                        selected_blocks,
+                        scores,
+                        budget=max_blocks,
+                        max_blocks=max_blocks,
+                    )
+                token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
+                previous_selection = set(selected_blocks)
 
         selected_blocks_sum += len(selected_blocks)
         selected_steps += 1
@@ -336,11 +379,12 @@ def run_sparse_decode(
                 output_hidden_states=False,
             )
 
-        step_past = normalize_past_key_values(step_outputs.past_key_values)
-        full_past_key_values = append_last_kv(full_past_key_values, step_past)
-        new_hidden = step_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)
-        hidden_history = torch.cat([hidden_history, new_hidden], dim=0)
-        previous_hidden = hidden_history[-2]
+        if args.selection_mode == "policy":
+            step_past = normalize_past_key_values(step_outputs.past_key_values)
+            full_past_key_values = append_last_kv(full_past_key_values, step_past)
+            new_hidden = step_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)
+            hidden_history = torch.cat([hidden_history, new_hidden], dim=0)
+            previous_hidden = hidden_history[-2]
         step_logits = model.lm_head(step_outputs.last_hidden_state[:, -1:, :])[0, -1]
         next_token_id = sample_next_token(step_logits, args.temperature, args.top_p)
         generated_ids.append(next_token_id)
