@@ -298,6 +298,11 @@ def run_sparse_decode(
                         output_attentions=True,
                         output_hidden_states=False,
                     )
+                if dense_outputs.attentions is None:
+                    raise RuntimeError(
+                        "oracle_topk selection requires attention weights, but the model backend returned None. "
+                        "Use eager attention for oracle_topk evaluation."
+                    )
                 dense_attentions = torch.stack([attn[0].detach().cpu().float() for attn in dense_outputs.attentions])
                 dense_mean_attention = dense_attentions.mean(dim=(0, 1))
                 token_attention = dense_mean_attention[0, :history_len]
@@ -411,11 +416,22 @@ def main() -> None:
     policy_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     policy = load_policy(args.policy_checkpoint, policy_device)
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
+    attn_impl = args.attn_implementation
+    if args.selection_mode == "oracle_topk" and attn_impl != "eager":
+        print(
+            {
+                "event": "force_eager_attention",
+                "reason": "oracle_topk needs explicit attention weights",
+                "requested_attn_implementation": attn_impl,
+                "used_attn_implementation": "eager",
+            }
+        )
+        attn_impl = "eager"
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         torch_dtype=load_dtype(args.dtype),
         device_map=normalize_device_map(args.device_map),
-        attn_implementation=args.attn_implementation,
+        attn_implementation=attn_impl,
     )
     if getattr(model, "hf_device_map", None) is None:
         model.to(args.device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
