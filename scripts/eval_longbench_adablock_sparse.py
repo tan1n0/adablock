@@ -8,6 +8,10 @@ from pathlib import Path
 import torch
 from tqdm.auto import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
+try:
+    from transformers.cache_utils import DynamicCache
+except ImportError:
+    DynamicCache = None
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -159,6 +163,14 @@ def normalize_past_key_values(past_key_values):
     if hasattr(past_key_values, "to_legacy_cache"):
         return past_key_values.to_legacy_cache()
     return past_key_values
+
+
+def to_model_cache(past_key_values):
+    if past_key_values is None or DynamicCache is None:
+        return past_key_values
+    if hasattr(past_key_values, "get_seq_length"):
+        return past_key_values
+    return DynamicCache.from_legacy_cache(past_key_values)
 
 
 def slice_past_key_values(
@@ -319,7 +331,7 @@ def run_sparse_decode(
                 input_ids=step_input_ids,
                 attention_mask=step_attention_mask,
                 position_ids=position_ids,
-                past_key_values=sparse_past,
+                past_key_values=to_model_cache(sparse_past),
                 use_cache=True,
                 output_hidden_states=False,
             )
