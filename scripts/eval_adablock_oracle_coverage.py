@@ -135,6 +135,24 @@ def coverage_for_selection(block_mass: torch.Tensor, selected: set[int]) -> floa
     return float((block_mass[valid].sum() / total).item())
 
 
+def overlap_stats(selected: set[int], oracle_selected: set[int]) -> dict[str, float]:
+    if not selected and not oracle_selected:
+        return {
+            "overlap_count": 0.0,
+            "precision": 1.0,
+            "recall": 1.0,
+            "jaccard": 1.0,
+        }
+    intersection = len(selected & oracle_selected)
+    union = len(selected | oracle_selected)
+    return {
+        "overlap_count": float(intersection),
+        "precision": intersection / max(len(selected), 1),
+        "recall": intersection / max(len(oracle_selected), 1),
+        "jaccard": intersection / max(union, 1),
+    }
+
+
 def fill_selection_with_scores(
     selected: set[int],
     scores: torch.Tensor,
@@ -191,6 +209,16 @@ def main() -> None:
         reuse_filled_cov_sum = 0.0
         adablock_filled_blocks_sum = 0.0
         reuse_filled_blocks_sum = 0.0
+        score_overlap_sum = 0.0
+        score_jaccard_sum = 0.0
+        adablock_overlap_sum = 0.0
+        adablock_jaccard_sum = 0.0
+        reuse_overlap_sum = 0.0
+        reuse_jaccard_sum = 0.0
+        adablock_filled_overlap_sum = 0.0
+        adablock_filled_jaccard_sum = 0.0
+        reuse_filled_overlap_sum = 0.0
+        reuse_filled_jaccard_sum = 0.0
 
         for row in tqdm(rows, desc=f"coverage:{task}", unit="sample"):
             prompt = format_longbench_prompt(task, row)
@@ -243,7 +271,7 @@ def main() -> None:
                 block_mass = block_mass / total_mass
                 global_hit_mass[: block_mass.numel()] += block_mass
 
-                fixed_coverage, _ = topk_coverage(block_mass, max_blocks)
+                fixed_coverage, oracle_topk_indices = topk_coverage(block_mass, max_blocks)
                 scores = cosine_block_scores(hidden, candidate_ranges, t)
                 score_topk_indices = set(torch.topk(scores, k=min(max_blocks, scores.numel())).indices.tolist())
                 score_topk_coverage = coverage_for_selection(block_mass, score_topk_indices)
@@ -309,11 +337,26 @@ def main() -> None:
                 adablock_cov_sum += coverage_for_selection(block_mass, current_selection)
                 reuse_cov_sum += coverage_for_selection(block_mass, reused_selection)
                 adablock_blocks_sum += len(reused_selection)
+                score_overlap = overlap_stats(score_topk_indices, oracle_topk_indices)
+                adablock_overlap = overlap_stats(current_selection, oracle_topk_indices)
+                reuse_overlap = overlap_stats(reused_selection, oracle_topk_indices)
+                score_overlap_sum += score_overlap["recall"]
+                score_jaccard_sum += score_overlap["jaccard"]
+                adablock_overlap_sum += adablock_overlap["recall"]
+                adablock_jaccard_sum += adablock_overlap["jaccard"]
+                reuse_overlap_sum += reuse_overlap["recall"]
+                reuse_jaccard_sum += reuse_overlap["jaccard"]
                 if args.fill_budget_with_score:
                     adablock_filled_cov_sum += coverage_for_selection(block_mass, filled_selection)
                     reuse_filled_cov_sum += coverage_for_selection(block_mass, reused_filled_selection)
                     adablock_filled_blocks_sum += len(filled_selection)
                     reuse_filled_blocks_sum += len(reused_filled_selection)
+                    filled_overlap = overlap_stats(filled_selection, oracle_topk_indices)
+                    reuse_filled_overlap = overlap_stats(reused_filled_selection, oracle_topk_indices)
+                    adablock_filled_overlap_sum += filled_overlap["recall"]
+                    adablock_filled_jaccard_sum += filled_overlap["jaccard"]
+                    reuse_filled_overlap_sum += reuse_filled_overlap["recall"]
+                    reuse_filled_jaccard_sum += reuse_filled_overlap["jaccard"]
                 total_steps += 1
                 previous_hidden = hidden[t]
                 previous_adablock_selection = current_selection
@@ -327,8 +370,14 @@ def main() -> None:
             "skipped_docs": skipped_docs,
             "fixed_oracle_topk_coverage": fixed_cov_sum / max(total_steps, 1),
             "score_topk_coverage": score_topk_cov_sum / max(total_steps, 1),
+            "score_topk_oracle_recall": score_overlap_sum / max(total_steps, 1),
+            "score_topk_oracle_jaccard": score_jaccard_sum / max(total_steps, 1),
             "adablock_coverage": adablock_cov_sum / max(total_steps, 1),
+            "adablock_oracle_recall": adablock_overlap_sum / max(total_steps, 1),
+            "adablock_oracle_jaccard": adablock_jaccard_sum / max(total_steps, 1),
             "adablock_reuse_coverage": reuse_cov_sum / max(total_steps, 1),
+            "adablock_reuse_oracle_recall": reuse_overlap_sum / max(total_steps, 1),
+            "adablock_reuse_oracle_jaccard": reuse_jaccard_sum / max(total_steps, 1),
             "adablock_reuse_rate": reuse_steps / max(total_steps, 1),
             "avg_adablock_blocks": adablock_blocks_sum / max(total_steps, 1),
             "avg_adablock_tokens": adablock_blocks_sum * args.block_size / max(total_steps, 1),
@@ -338,6 +387,10 @@ def main() -> None:
                 {
                     "adablock_filled_coverage": adablock_filled_cov_sum / max(total_steps, 1),
                     "adablock_reuse_filled_coverage": reuse_filled_cov_sum / max(total_steps, 1),
+                    "adablock_filled_oracle_recall": adablock_filled_overlap_sum / max(total_steps, 1),
+                    "adablock_filled_oracle_jaccard": adablock_filled_jaccard_sum / max(total_steps, 1),
+                    "adablock_reuse_filled_oracle_recall": reuse_filled_overlap_sum / max(total_steps, 1),
+                    "adablock_reuse_filled_oracle_jaccard": reuse_filled_jaccard_sum / max(total_steps, 1),
                     "avg_adablock_filled_blocks": adablock_filled_blocks_sum / max(total_steps, 1),
                     "avg_adablock_filled_tokens": adablock_filled_blocks_sum
                     * args.block_size
