@@ -40,6 +40,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reuse-coverage", type=float, default=0.9)
     parser.add_argument("--max-docs", type=int, default=None)
     parser.add_argument("--sample-stride", type=int, default=4)
+    parser.add_argument(
+        "--oracle-layer-indices",
+        nargs="*",
+        type=int,
+        default=None,
+        help="Optional attention layer indices used to construct the oracle. Defaults to all layers.",
+    )
     parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--device-map", default="auto")
     parser.add_argument(
@@ -88,6 +95,17 @@ def iter_texts(path: Path, field: str, max_docs: int | None):
                 yield idx, text
 
 
+def select_oracle_attentions(attentions: torch.Tensor, layer_indices: list[int] | None) -> torch.Tensor:
+    if not layer_indices:
+        return attentions
+    valid = [idx for idx in layer_indices if 0 <= idx < attentions.shape[0]]
+    if not valid:
+        raise ValueError(
+            f"No valid oracle layers in {layer_indices}. Available layer range: 0..{attentions.shape[0] - 1}"
+        )
+    return attentions[valid]
+
+
 def main() -> None:
     args = parse_args()
     config = OracleConfig(
@@ -131,6 +149,7 @@ def main() -> None:
             "model": args.model_name,
             "device_map": getattr(model, "hf_device_map", None),
             "model_device": str(model.device),
+            "oracle_layer_indices": args.oracle_layer_indices,
         },
         flush=True,
     )
@@ -186,8 +205,9 @@ def main() -> None:
                     f"Model output contains NaN/Inf: {message}. "
                     "Regenerate with CUDA, a smaller max_length, or dtype bfloat16/float32."
                 )
-            # Shape: layers, heads, seq, seq. Average layers and heads for oracle labels.
-            mean_attention = attentions.mean(dim=(0, 1))
+            oracle_attentions = select_oracle_attentions(attentions, args.oracle_layer_indices)
+            # Shape: layers, heads, seq, seq. Average selected layers and heads for oracle labels.
+            mean_attention = oracle_attentions.mean(dim=(0, 1))
 
             block_ranges = make_block_ranges(seq_len, args.block_size)
             num_blocks = len(block_ranges)
@@ -254,7 +274,7 @@ def main() -> None:
                 previous_hidden = hidden[t]
             if args.log_every_doc:
                 print({"event": "doc_done", "doc_id": doc_id, "seq_len": seq_len}, flush=True)
-            del hidden, attentions, mean_attention
+            del hidden, attentions, oracle_attentions, mean_attention
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
