@@ -48,6 +48,13 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--candidate-blocks", type=int, default=16)
     parser.add_argument("--compare-topk", type=int, default=8)
+    parser.add_argument(
+        "--attention-layer-indices",
+        nargs="*",
+        type=int,
+        default=None,
+        help="Optional layer indices whose block top-k should be reported alongside the mean-attention top-k.",
+    )
     parser.add_argument("--dtype", default="float32", choices=["float16", "bfloat16", "float32"])
     parser.add_argument("--attn-implementation", default="eager", choices=["eager", "sdpa", "flash_attention_2"])
     parser.add_argument("--device-map", default="auto")
@@ -126,6 +133,7 @@ def run_full_step(
         result["hidden_history"] = outputs.hidden_states[-1][0].detach().cpu().float()
     if need_attentions:
         attentions = torch.stack([attn[0].detach().cpu().float() for attn in outputs.attentions])
+        result["attentions"] = attentions
         result["mean_attention"] = attentions.mean(dim=(0, 1))
     return result
 
@@ -185,11 +193,12 @@ def main() -> None:
                         model=model,
                         input_ids=history_ids,
                         target_token_id=target_token_id,
-                        need_attentions=args.candidate_mode == "attention_topk",
+                        need_attentions=(args.candidate_mode == "attention_topk") or bool(args.attention_layer_indices),
                         need_hidden=True,
                     )
                     hidden_history = full_step["hidden_history"]
                     mean_attention = full_step.get("mean_attention")
+                    all_attentions = full_step.get("attentions")
                     current_index = int(history_ids.shape[-1] - 1)
                     block_ranges = make_block_ranges(int(history_ids.shape[-1]), args.block_size)
                     candidate_ids = choose_candidate_blocks(
@@ -230,6 +239,17 @@ def main() -> None:
                         block_mass = aggregate_block_mass(token_attention, block_ranges)
                         attention_top_blocks = top_blocks(block_mass, args.compare_topk)
 
+                    layer_attention_top_blocks: dict[str, list[int]] = {}
+                    if isinstance(all_attentions, torch.Tensor) and args.attention_layer_indices:
+                        num_layers = int(all_attentions.shape[0])
+                        for layer_idx in args.attention_layer_indices:
+                            if not (0 <= layer_idx < num_layers):
+                                continue
+                            layer_attention = all_attentions[layer_idx].mean(dim=0)
+                            token_attention = layer_attention[current_index, : current_index + 1]
+                            block_mass = aggregate_block_mass(token_attention, block_ranges)
+                            layer_attention_top_blocks[str(layer_idx)] = top_blocks(block_mass, args.compare_topk)
+
                     score_top_blocks = top_blocks(
                         cosine_block_scores(hidden_history, block_ranges, current_index),
                         args.compare_topk,
@@ -251,6 +271,7 @@ def main() -> None:
                         "candidate_block_ids": candidate_ids,
                         "utility_top_blocks": top_utility_blocks,
                         "attention_top_blocks": attention_top_blocks,
+                        "layer_attention_top_blocks": layer_attention_top_blocks,
                         "score_top_blocks": score_top_blocks,
                         "utilities": utilities,
                     }
