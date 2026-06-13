@@ -63,7 +63,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--selection-mode",
         default="policy",
-        choices=["policy", "oracle_topk"],
+        choices=["policy", "oracle_topk", "score_topk"],
         help="Block selection strategy for sparse decoding.",
     )
     parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
@@ -455,6 +455,17 @@ def run_sparse_decode(
                 new_hidden = dense_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)
                 hidden_history = torch.cat([hidden_history, new_hidden], dim=0)
                 previous_hidden = hidden_history[-2]
+                token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
+            elif args.selection_mode == "score_topk":
+                selected_blocks = set(torch.topk(scores, k=min(max_blocks, scores.numel())).indices.tolist())
+                selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
+                if args.fill_budget_with_score:
+                    selected_blocks = fill_selection_with_scores(
+                        selected_blocks,
+                        scores,
+                        budget=max_blocks,
+                        max_blocks=max_blocks,
+                    )
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             else:
                 score_features = score_summary_features(scores).unsqueeze(0)
