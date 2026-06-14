@@ -61,20 +61,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--block-size", type=int, default=16)
     parser.add_argument("--local-window-blocks", type=int, default=4)
-    parser.add_argument(
-        "--sink-tokens",
-        type=int,
-        default=0,
-        help="Always keep this many prefix tokens. Rounded up to whole blocks.",
-    )
-    parser.add_argument(
-        "--required-blocks-outside-budget",
-        action="store_true",
-        help=(
-            "Treat sink/local blocks as always-resident blocks outside --budget-tokens. "
-            "This is closer to Quest/LouisKV settings where S and W are retained separately."
-        ),
-    )
     parser.add_argument("--sample-stride", type=int, default=16)
     parser.add_argument("--budget-tokens", type=int, default=512)
     parser.add_argument("--reuse-threshold", type=float, default=0.8)
@@ -185,30 +171,14 @@ def fill_selection_with_scores(
     budget: int,
     max_blocks: int,
     required_blocks: set[int] | None = None,
-    required_outside_budget: bool = False,
 ) -> set[int]:
     if scores.numel() == 0 or budget <= 0:
-        return {idx for idx in (required_blocks or set()) if 0 <= idx < scores.numel()}
+        return set()
     target = min(budget, max_blocks, scores.numel())
     required = {idx for idx in (required_blocks or set()) if 0 <= idx < scores.numel()}
     valid_selected = {idx for idx in selected if 0 <= idx < scores.numel()}
     ranked_selected = sorted(valid_selected, key=lambda idx: float(scores[idx]), reverse=True)
     ranked_global = torch.argsort(scores, descending=True).tolist()
-
-    if required_outside_budget:
-        optional_ordered: list[int] = []
-        optional_seen: set[int] = set()
-        for idx in ranked_selected:
-            if idx not in required and idx not in optional_seen:
-                optional_ordered.append(idx)
-                optional_seen.add(idx)
-        for idx in ranked_global:
-            if idx not in required and idx not in optional_seen:
-                optional_ordered.append(idx)
-                optional_seen.add(idx)
-            if len(optional_ordered) >= target:
-                break
-        return required | set(optional_ordered[:target])
 
     ordered: list[int] = []
     seen: set[int] = set()
@@ -234,14 +204,6 @@ def enforce_local_window(selected_blocks: set[int], current_block: int, local_wi
     start = max(0, current_block - local_window_blocks + 1)
     local_blocks = set(range(start, current_block + 1))
     return set(selected_blocks) | local_blocks
-
-
-def required_blocks_for_step(args: argparse.Namespace, current_block: int, num_blocks: int) -> set[int]:
-    local_start = max(0, current_block - args.local_window_blocks + 1)
-    local_blocks = set(range(local_start, current_block + 1))
-    sink_block_count = (args.sink_tokens + args.block_size - 1) // args.block_size
-    sink_blocks = set(range(min(sink_block_count, num_blocks)))
-    return local_blocks | sink_blocks
 
 
 def blocks_to_token_indices(block_ids: set[int], block_ranges: list[tuple[int, int]]) -> list[int]:
@@ -481,7 +443,7 @@ def run_sparse_decode(
             token_indices = list(range(history_len))
             selected_blocks = set(range(len(candidate_ranges)))
         else:
-            required_blocks = required_blocks_for_step(args, current_block, len(candidate_ranges))
+            local_blocks = set(range(max(0, current_block - args.local_window_blocks + 1), current_block + 1))
             if args.selection_mode == "quest_topk":
                 scores = quest_block_scores(hidden_history, candidate_ranges, current_token_index)
             else:
@@ -512,21 +474,7 @@ def run_sparse_decode(
                 token_attention = dense_mean_attention[0, :history_len]
                 block_mass = aggregate_block_mass(token_attention, candidate_ranges)
                 block_mass = block_mass / block_mass.sum().clamp_min(1e-8)
-                if args.required_blocks_outside_budget:
-                    optional_mass = block_mass.clone()
-                    for block_id in required_blocks:
-                        if 0 <= block_id < optional_mass.numel():
-                            optional_mass[block_id] = -1
-                    selected_blocks = required_blocks | set(top_blocks(optional_mass, max_blocks))
-                else:
-                    selected_blocks = set(top_blocks(block_mass, max_blocks))
-                    selected_blocks = fill_selection_with_scores(
-                        selected_blocks,
-                        block_mass,
-                        budget=max_blocks,
-                        max_blocks=max_blocks,
-                        required_blocks=required_blocks,
-                    )
+                selected_blocks = set(top_blocks(block_mass, max_blocks))
                 dense_step_past = normalize_past_key_values(dense_outputs.past_key_values)
                 full_past_key_values = append_last_kv(full_past_key_values, dense_step_past)
                 new_hidden = dense_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)
@@ -535,17 +483,15 @@ def run_sparse_decode(
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             elif args.selection_mode in {"score_topk", "quest_topk"}:
                 selected_blocks = set(torch.topk(scores, k=min(max_blocks, scores.numel())).indices.tolist())
+                selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
                 if args.fill_budget_with_score:
                     selected_blocks = fill_selection_with_scores(
                         selected_blocks,
                         scores,
                         budget=max_blocks,
                         max_blocks=max_blocks,
-                        required_blocks=required_blocks,
-                        required_outside_budget=args.required_blocks_outside_budget,
+                        required_blocks=local_blocks,
                     )
-                else:
-                    selected_blocks = selected_blocks | required_blocks
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             else:
                 if policy is None:
@@ -587,10 +533,10 @@ def run_sparse_decode(
                     budget=predicted_k,
                     max_blocks=max_blocks,
                 )
-                selected_blocks = selected_blocks | required_blocks
+                selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
                 reuse = float(policy_outputs["reuse_prob"].item()) > args.reuse_threshold
                 if reuse and previous_selection:
-                    selected_blocks = set(previous_selection) | required_blocks
+                    selected_blocks = set(previous_selection)
                     reuse_steps += 1
                 if args.fill_budget_with_score:
                     selected_blocks = fill_selection_with_scores(
@@ -598,8 +544,7 @@ def run_sparse_decode(
                         scores,
                         budget=max_blocks,
                         max_blocks=max_blocks,
-                        required_blocks=required_blocks,
-                        required_outside_budget=args.required_blocks_outside_budget,
+                        required_blocks=local_blocks,
                     )
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
                 previous_selection = set(selected_blocks)
