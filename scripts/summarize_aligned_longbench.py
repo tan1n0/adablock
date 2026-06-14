@@ -6,9 +6,41 @@ from pathlib import Path
 from typing import Any
 
 
+TARGET_PROFILES = {
+    "louiskv-qwen25-512": {
+        "description": "LouisKV Table 2, Qwen2.5-7B-Instruct, KV cache budget 512.",
+        "scores": {
+            "narrativeqa": 19.39,
+            "qasper": 37.67,
+            "multifieldqa_en": 46.63,
+            "hotpotqa": 52.14,
+            "musique": 28.51,
+            "gov_report": 30.57,
+        },
+    },
+    "fullcache-qwen25-table2": {
+        "description": "LouisKV Table 2 lossless baseline, Qwen2.5-7B-Instruct.",
+        "scores": {
+            "narrativeqa": 20.10,
+            "qasper": 39.29,
+            "multifieldqa_en": 46.66,
+            "hotpotqa": 55.84,
+            "musique": 25.88,
+            "gov_report": 31.40,
+        },
+    },
+}
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize aligned LongBench method outputs.")
     parser.add_argument("--result-root", required=True)
+    parser.add_argument(
+        "--target-profile",
+        default=None,
+        choices=sorted(TARGET_PROFILES),
+        help="Optional paper target profile used to report deltas.",
+    )
     parser.add_argument("--output-json", default=None)
     parser.add_argument("--output-tsv", default=None)
     return parser.parse_args()
@@ -93,9 +125,38 @@ def summarize_method(method_dir: Path) -> dict[str, Any]:
     }
 
 
+def add_target_deltas(rows: list[dict[str, Any]], target_scores: dict[str, float]) -> None:
+    for row in rows:
+        tasks = row["tasks"]
+        shared_tasks = sorted(set(tasks) & set(target_scores))
+        if not shared_tasks:
+            continue
+        target_average = mean([target_scores[task] for task in shared_tasks])
+        score_average = mean([tasks[task]["score"] for task in shared_tasks if "score" in tasks[task]])
+        row["target"] = {
+            "profile_average": target_average,
+            "delta_to_profile": score_average - target_average,
+            "tasks": {
+                task: {
+                    "target": target_scores[task],
+                    "delta": tasks[task].get("score", 0.0) - target_scores[task],
+                }
+                for task in shared_tasks
+            },
+        }
+
+
 def write_tsv(rows: list[dict[str, Any]], path: Path) -> None:
     task_names = sorted({task for row in rows for task in row["tasks"]})
-    columns = ["method", "average", *task_names, "avg_selected_tokens", "avg_reuse_rate"]
+    columns = [
+        "method",
+        "average",
+        "target_average",
+        "delta_to_target",
+        *task_names,
+        "avg_selected_tokens",
+        "avg_reuse_rate",
+    ]
     with path.open("w", encoding="utf-8") as out:
         out.write("\t".join(columns) + "\n")
         for row in rows:
@@ -116,6 +177,8 @@ def write_tsv(rows: list[dict[str, Any]], path: Path) -> None:
             values: list[Any] = [
                 row["method"],
                 row["summary"].get("average", ""),
+                row.get("target", {}).get("profile_average", ""),
+                row.get("target", {}).get("delta_to_profile", ""),
                 *task_scores,
                 mean(sparse_tokens) if sparse_tokens else "",
                 mean(reuse_rates) if reuse_rates else "",
@@ -131,9 +194,14 @@ def main() -> None:
         for path in sorted(result_root.iterdir())
         if path.is_dir()
     ]
+    target = TARGET_PROFILES.get(args.target_profile) if args.target_profile else None
+    if target:
+        add_target_deltas(rows, target["scores"])
 
     payload = {
         "result_root": str(result_root),
+        "target_profile": args.target_profile,
+        "target": target,
         "methods": rows,
     }
     print(json.dumps(payload, indent=2, ensure_ascii=False))

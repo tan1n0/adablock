@@ -3,9 +3,9 @@ set -euo pipefail
 
 # Run full / policy / score_topk / quest_topk under one aligned LongBench setup.
 #
-# Defaults target the current comparison priority:
+# Defaults target a quick paper-aligned check:
 #   model: Qwen/Qwen2.5-7B-Instruct
-#   tasks: long-input short-output LongBench set
+#   tasks: shorter LongBench long-input tasks first
 #   budget: 512 tokens for sparse methods
 #   max input length: 32768
 #   max new tokens: per-task defaults from utils/longbench_eval.py unless overridden
@@ -13,7 +13,13 @@ set -euo pipefail
 # Example:
 #   bash scripts/run_aligned_longbench_eval.sh
 #
+# Presets:
+#   quick: hotpotqa musique multifieldqa_en
+#   tiny: hotpotqa musique
+#   paper: narrativeqa qasper multifieldqa_en hotpotqa musique gov_report
+#
 # Common overrides:
+#   PRESET=paper bash scripts/run_aligned_longbench_eval.sh
 #   MAX_INPUT_LENGTH=8192 MAX_SAMPLES=20 RESULT_ROOT=results/aligned_debug \
 #     bash scripts/run_aligned_longbench_eval.sh
 
@@ -21,7 +27,26 @@ MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-7B-Instruct}"
 POLICY_CHECKPOINT="${POLICY_CHECKPOINT:-checkpoints/adablock_policy_longbench_qa_1024/best.pt}"
 LOCAL_DATA_DIR="${LOCAL_DATA_DIR:-data/longbench}"
 
-TASKS=(${TASKS:-narrativeqa qasper multifieldqa_en hotpotqa musique gov_report})
+PRESET="${PRESET:-quick}"
+if [[ -n "${TASKS:-}" ]]; then
+  TASKS=(${TASKS})
+else
+  case "${PRESET}" in
+    tiny)
+      TASKS=(hotpotqa musique)
+      ;;
+    quick)
+      TASKS=(hotpotqa musique multifieldqa_en)
+      ;;
+    paper)
+      TASKS=(narrativeqa qasper multifieldqa_en hotpotqa musique gov_report)
+      ;;
+    *)
+      echo "Unknown PRESET=${PRESET}. Use tiny, quick, paper, or set TASKS explicitly." >&2
+      exit 2
+      ;;
+  esac
+fi
 METHODS=(${METHODS:-full policy score_topk quest_topk})
 
 MAX_INPUT_LENGTH="${MAX_INPUT_LENGTH:-32768}"
@@ -39,8 +64,8 @@ DTYPE="${DTYPE:-float16}"
 ATTN_IMPL="${ATTN_IMPL:-sdpa}"
 DEVICE_MAP="${DEVICE_MAP:-auto}"
 
-RESULT_ROOT="${RESULT_ROOT:-results/aligned_longbench_${MAX_INPUT_LENGTH}_b${BUDGET_TOKENS}}"
-LOG_DIR="${LOG_DIR:-logs/aligned_longbench_${MAX_INPUT_LENGTH}_b${BUDGET_TOKENS}}"
+RESULT_ROOT="${RESULT_ROOT:-results/aligned_longbench_${PRESET}_${MAX_INPUT_LENGTH}_b${BUDGET_TOKENS}}"
+LOG_DIR="${LOG_DIR:-logs/aligned_longbench_${PRESET}_${MAX_INPUT_LENGTH}_b${BUDGET_TOKENS}}"
 
 mkdir -p "${RESULT_ROOT}" "${LOG_DIR}"
 
@@ -147,6 +172,7 @@ done
 
 python scripts/summarize_aligned_longbench.py \
   --result-root "${RESULT_ROOT}" \
+  --target-profile louiskv-qwen25-512 \
   --output-json "${RESULT_ROOT}/aligned_summary.json" \
   --output-tsv "${RESULT_ROOT}/aligned_summary.tsv"
 
