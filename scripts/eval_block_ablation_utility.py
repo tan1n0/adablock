@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from utils.block_oracle import aggregate_block_mass, cosine_block_scores, make_block_ranges, top_blocks
+from utils.block_oracle import aggregate_block_mass, cosine_block_scores, make_block_ranges, quest_block_scores, top_blocks
 from utils.longbench_eval import (
     LONG_INPUT_SHORT_OUTPUT_TASKS,
     build_model_input_text,
@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--candidate-mode",
         default="score_topk",
-        choices=["score_topk", "attention_topk", "last_blocks"],
+        choices=["score_topk", "quest_topk", "attention_topk", "last_blocks"],
         help="How to choose candidate blocks to ablate before measuring utility.",
     )
     parser.add_argument("--candidate-blocks", type=int, default=16)
@@ -84,6 +84,10 @@ def choose_candidate_blocks(
 
     if mode == "score_topk":
         scores = cosine_block_scores(hidden_history, block_ranges, current_index)
+        k = min(candidate_blocks, scores.numel())
+        return torch.topk(scores, k=k).indices.tolist()
+    if mode == "quest_topk":
+        scores = quest_block_scores(hidden_history, block_ranges, current_index)
         k = min(candidate_blocks, scores.numel())
         return torch.topk(scores, k=k).indices.tolist()
 
@@ -254,6 +258,10 @@ def main() -> None:
                         cosine_block_scores(hidden_history, block_ranges, current_index),
                         args.compare_topk,
                     )
+                    quest_top_blocks = top_blocks(
+                        quest_block_scores(hidden_history, block_ranges, current_index),
+                        args.compare_topk,
+                    )
 
                     record = {
                         "task": task,
@@ -273,6 +281,7 @@ def main() -> None:
                         "attention_top_blocks": attention_top_blocks,
                         "layer_attention_top_blocks": layer_attention_top_blocks,
                         "score_top_blocks": score_top_blocks,
+                        "quest_top_blocks": quest_top_blocks,
                         "utilities": utilities,
                     }
                     out.write(json.dumps(record, ensure_ascii=False) + "\n")

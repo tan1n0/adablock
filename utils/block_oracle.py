@@ -140,3 +140,17 @@ def cosine_block_scores(hidden_states: torch.Tensor, block_ranges: Sequence[tupl
         centroids.append(hidden_states[start:end].float().mean(dim=0))
     centroid_tensor = torch.stack(centroids, dim=0)
     return F.cosine_similarity(query.unsqueeze(0), centroid_tensor, dim=-1)
+
+
+def quest_block_scores(hidden_states: torch.Tensor, block_ranges: Sequence[tuple[int, int]], t: int) -> torch.Tensor:
+    query = hidden_states[t].float()
+    scores: List[torch.Tensor] = []
+    for start, end in block_ranges:
+        block = hidden_states[start:end].float()
+        block_min = block.min(dim=0).values
+        block_max = block.max(dim=0).values
+        # Quest-style upper-bound proxy: for each dimension, choose the key envelope endpoint
+        # that maximizes the query-key contribution, then sum across dimensions.
+        upper = torch.maximum(query * block_min, query * block_max).sum()
+        scores.append(upper)
+    return torch.stack(scores, dim=0)

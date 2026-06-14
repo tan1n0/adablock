@@ -24,6 +24,7 @@ from utils.block_oracle import (
     block_categories,
     cosine_block_scores,
     make_block_ranges,
+    quest_block_scores,
     score_summary_features,
     top_blocks,
 )
@@ -63,7 +64,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--selection-mode",
         default="policy",
-        choices=["policy", "oracle_topk", "score_topk"],
+        choices=["policy", "oracle_topk", "score_topk", "quest_topk"],
         help="Block selection strategy for sparse decoding.",
     )
     parser.add_argument("--dtype", default="float16", choices=["float16", "bfloat16", "float32"])
@@ -422,7 +423,10 @@ def run_sparse_decode(
             token_indices = list(range(history_len))
             selected_blocks = set(range(len(candidate_ranges)))
         else:
-            scores = cosine_block_scores(hidden_history, candidate_ranges, current_token_index)
+            if args.selection_mode == "quest_topk":
+                scores = quest_block_scores(hidden_history, candidate_ranges, current_token_index)
+            else:
+                scores = cosine_block_scores(hidden_history, candidate_ranges, current_token_index)
             if args.selection_mode == "oracle_topk":
                 dense_token_indices = list(range(history_len))
                 dense_past = slice_past_key_values(full_past_key_values, dense_token_indices, layer_devices)
@@ -456,7 +460,7 @@ def run_sparse_decode(
                 hidden_history = torch.cat([hidden_history, new_hidden], dim=0)
                 previous_hidden = hidden_history[-2]
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
-            elif args.selection_mode == "score_topk":
+            elif args.selection_mode in {"score_topk", "quest_topk"}:
                 selected_blocks = set(torch.topk(scores, k=min(max_blocks, scores.numel())).indices.tolist())
                 selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
                 if args.fill_budget_with_score:
