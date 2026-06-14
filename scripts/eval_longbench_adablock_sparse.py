@@ -166,18 +166,34 @@ def fill_selection_with_scores(
     scores: torch.Tensor,
     budget: int,
     max_blocks: int,
+    required_blocks: set[int] | None = None,
 ) -> set[int]:
     if scores.numel() == 0 or budget <= 0:
         return set()
     target = min(budget, max_blocks, scores.numel())
-    filled = {idx for idx in selected if 0 <= idx < scores.numel()}
-    if len(filled) >= target:
-        return set(sorted(filled)[:target])
-    for idx in torch.argsort(scores, descending=True).tolist():
-        filled.add(idx)
-        if len(filled) >= target:
+    required = {idx for idx in (required_blocks or set()) if 0 <= idx < scores.numel()}
+    valid_selected = {idx for idx in selected if 0 <= idx < scores.numel()}
+    ranked_selected = sorted(valid_selected, key=lambda idx: float(scores[idx]), reverse=True)
+    ranked_global = torch.argsort(scores, descending=True).tolist()
+
+    ordered: list[int] = []
+    seen: set[int] = set()
+
+    for idx in sorted(required):
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+    for idx in ranked_selected:
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+    for idx in ranked_global:
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+        if len(ordered) >= target:
             break
-    return filled
+    return set(ordered[:target])
 
 
 def enforce_local_window(selected_blocks: set[int], current_block: int, local_window_blocks: int) -> set[int]:
@@ -394,6 +410,7 @@ def run_sparse_decode(
     bucket_values = list(policy.config.budget_buckets)
     max_blocks = args.budget_tokens // args.block_size
     layer_devices = get_layer_devices(model)
+    prompt_block_count = len(make_block_ranges(int(input_ids.shape[-1]), args.block_size))
     previous_hidden = None
     previous_selection: set[int] = set()
     selected_blocks_sum = 0.0
@@ -423,6 +440,7 @@ def run_sparse_decode(
             token_indices = list(range(history_len))
             selected_blocks = set(range(len(candidate_ranges)))
         else:
+            local_blocks = set(range(max(0, current_block - args.local_window_blocks + 1), current_block + 1))
             if args.selection_mode == "quest_topk":
                 scores = quest_block_scores(hidden_history, candidate_ranges, current_token_index)
             else:
@@ -469,6 +487,7 @@ def run_sparse_decode(
                         scores,
                         budget=max_blocks,
                         max_blocks=max_blocks,
+                        required_blocks=local_blocks,
                     )
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             else:
@@ -488,7 +507,7 @@ def run_sparse_decode(
                 high_hit_blocks = set(torch.topk(scores, k=min(high_hit_count, scores.numel())).indices.tolist())
                 categories = block_categories(
                     num_blocks=len(candidate_ranges),
-                    prompt_blocks=len(block_ranges),
+                    prompt_blocks=prompt_block_count,
                     current_block=current_block,
                     high_hit_blocks=high_hit_blocks,
                     config=oracle_config,
@@ -519,6 +538,7 @@ def run_sparse_decode(
                         scores,
                         budget=max_blocks,
                         max_blocks=max_blocks,
+                        required_blocks=local_blocks,
                     )
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
                 previous_selection = set(selected_blocks)
@@ -540,7 +560,7 @@ def run_sparse_decode(
                 output_hidden_states=False,
             )
 
-        if args.selection_mode == "policy":
+        if args.selection_mode != "oracle_topk":
             step_past = normalize_past_key_values(step_outputs.past_key_values)
             full_past_key_values = append_last_kv(full_past_key_values, step_past)
             new_hidden = step_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)

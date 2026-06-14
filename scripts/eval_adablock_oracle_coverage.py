@@ -158,18 +158,34 @@ def fill_selection_with_scores(
     scores: torch.Tensor,
     budget: int,
     max_blocks: int,
+    required_blocks: set[int] | None = None,
 ) -> set[int]:
     if scores.numel() == 0 or budget <= 0:
         return set()
     target = min(budget, max_blocks, scores.numel())
-    filled = {idx for idx in selected if 0 <= idx < scores.numel()}
-    if len(filled) >= target:
-        return set(list(filled)[:target])
-    for idx in torch.argsort(scores, descending=True).tolist():
-        filled.add(idx)
-        if len(filled) >= target:
+    required = {idx for idx in (required_blocks or set()) if 0 <= idx < scores.numel()}
+    valid_selected = {idx for idx in selected if 0 <= idx < scores.numel()}
+    ranked_selected = sorted(valid_selected, key=lambda idx: float(scores[idx]), reverse=True)
+    ranked_global = torch.argsort(scores, descending=True).tolist()
+
+    ordered: list[int] = []
+    seen: set[int] = set()
+
+    for idx in sorted(required):
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+    for idx in ranked_selected:
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+    for idx in ranked_global:
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+        if len(ordered) >= target:
             break
-    return filled
+    return set(ordered[:target])
 
 
 def main() -> None:
@@ -205,6 +221,7 @@ def main() -> None:
         reuse_cov_sum = 0.0
         reuse_steps = 0
         adablock_blocks_sum = 0.0
+        reuse_blocks_sum = 0.0
         adablock_filled_cov_sum = 0.0
         reuse_filled_cov_sum = 0.0
         adablock_filled_blocks_sum = 0.0
@@ -319,24 +336,28 @@ def main() -> None:
                 else:
                     reused_selection = current_selection
                 if args.fill_budget_with_score:
+                    local_blocks = set(range(max(0, current_block - oracle_config.local_window_blocks + 1), current_block + 1))
                     filled_selection = fill_selection_with_scores(
                         current_selection,
                         scores,
                         budget=max_blocks,
                         max_blocks=max_blocks,
+                        required_blocks=local_blocks,
                     )
                     reused_filled_selection = fill_selection_with_scores(
                         reused_selection,
                         scores,
                         budget=max_blocks,
                         max_blocks=max_blocks,
+                        required_blocks=local_blocks,
                     )
 
                 fixed_cov_sum += fixed_coverage
                 score_topk_cov_sum += score_topk_coverage
                 adablock_cov_sum += coverage_for_selection(block_mass, current_selection)
                 reuse_cov_sum += coverage_for_selection(block_mass, reused_selection)
-                adablock_blocks_sum += len(reused_selection)
+                adablock_blocks_sum += len(current_selection)
+                reuse_blocks_sum += len(reused_selection)
                 score_overlap = overlap_stats(score_topk_indices, oracle_topk_indices)
                 adablock_overlap = overlap_stats(current_selection, oracle_topk_indices)
                 reuse_overlap = overlap_stats(reused_selection, oracle_topk_indices)
@@ -381,6 +402,8 @@ def main() -> None:
             "adablock_reuse_rate": reuse_steps / max(total_steps, 1),
             "avg_adablock_blocks": adablock_blocks_sum / max(total_steps, 1),
             "avg_adablock_tokens": adablock_blocks_sum * args.block_size / max(total_steps, 1),
+            "avg_adablock_reuse_blocks": reuse_blocks_sum / max(total_steps, 1),
+            "avg_adablock_reuse_tokens": reuse_blocks_sum * args.block_size / max(total_steps, 1),
         }
         if args.fill_budget_with_score:
             results[task].update(

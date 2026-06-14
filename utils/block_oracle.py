@@ -93,7 +93,7 @@ def block_categories(
             categories[idx] = 2
         if idx == 0:
             categories[idx] = 3
-        if idx in high_hit_blocks and categories[idx] != 0:
+        if idx in high_hit_blocks and categories[idx] not in {0, 3}:
             categories[idx] = 4
     return categories
 
