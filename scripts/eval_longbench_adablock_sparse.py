@@ -46,7 +46,11 @@ from utils.longbench_eval import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run AdaBlock-driven sparse decoding on LongBench.")
-    parser.add_argument("--policy-checkpoint", required=True)
+    parser.add_argument(
+        "--policy-checkpoint",
+        default=None,
+        help="Required only when --selection-mode=policy.",
+    )
     parser.add_argument("--model-name", default="Qwen/Qwen2.5-7B-Instruct")
     parser.add_argument("--tasks", nargs="+", default=list(LONG_INPUT_SHORT_OUTPUT_TASKS))
     parser.add_argument("--split", default="test")
@@ -375,7 +379,7 @@ def run_full_decode_trace(
 def run_sparse_decode(
     model,
     tokenizer,
-    policy: AdaBlockPolicy,
+    policy: AdaBlockPolicy | None,
     policy_device: torch.device,
     prompt_text: str,
     args: argparse.Namespace,
@@ -407,7 +411,6 @@ def run_sparse_decode(
     current_input_token = teacher_forced_ids[0] if teacher_forced_ids else generated_ids[-1]
 
     oracle_config = OracleConfig(block_size=args.block_size, local_window_blocks=args.local_window_blocks)
-    bucket_values = list(policy.config.budget_buckets)
     max_blocks = args.budget_tokens // args.block_size
     layer_devices = get_layer_devices(model)
     prompt_block_count = len(make_block_ranges(int(input_ids.shape[-1]), args.block_size))
@@ -491,6 +494,9 @@ def run_sparse_decode(
                     )
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             else:
+                if policy is None:
+                    raise ValueError("--selection-mode=policy requires --policy-checkpoint")
+                bucket_values = list(policy.config.budget_buckets)
                 score_features = score_summary_features(scores).unsqueeze(0)
                 if previous_hidden is None:
                     query_drift = torch.tensor([1.0])
@@ -609,7 +615,12 @@ def run_sparse_decode(
 def main() -> None:
     args = parse_args()
     policy_device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    policy = load_policy(args.policy_checkpoint, policy_device)
+    if args.selection_mode == "policy":
+        if not args.policy_checkpoint:
+            raise SystemExit("--policy-checkpoint is required when --selection-mode=policy")
+        policy = load_policy(args.policy_checkpoint, policy_device)
+    else:
+        policy = None
     tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
     attn_impl = args.attn_implementation
     if args.selection_mode == "oracle_topk" and attn_impl != "eager":
