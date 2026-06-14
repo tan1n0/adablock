@@ -6,7 +6,8 @@ set -euo pipefail
 # Defaults target a quick paper-aligned check:
 #   model: Qwen/Qwen2.5-7B-Instruct
 #   tasks: shorter LongBench long-input tasks first
-#   budget: 512 tokens for sparse methods
+#   budget: 512 retrieved tokens for sparse methods
+#   sink/local retained tokens: S=32, W=512, matching LouisKV long-input settings
 #   max input length: 32768
 #   max new tokens: per-task defaults from utils/longbench_eval.py unless overridden
 #
@@ -55,7 +56,10 @@ MAX_NEW_TOKENS_OVERRIDE="${MAX_NEW_TOKENS_OVERRIDE:-}"
 
 BUDGET_TOKENS="${BUDGET_TOKENS:-512}"
 BLOCK_SIZE="${BLOCK_SIZE:-16}"
-LOCAL_WINDOW_BLOCKS="${LOCAL_WINDOW_BLOCKS:-4}"
+SINK_TOKENS="${SINK_TOKENS:-32}"
+LOCAL_WINDOW_TOKENS="${LOCAL_WINDOW_TOKENS:-512}"
+LOCAL_WINDOW_BLOCKS="${LOCAL_WINDOW_BLOCKS:-$(((LOCAL_WINDOW_TOKENS + BLOCK_SIZE - 1) / BLOCK_SIZE))}"
+REQUIRED_BLOCKS_OUTSIDE_BUDGET="${REQUIRED_BLOCKS_OUTSIDE_BUDGET:-1}"
 SAMPLE_STRIDE="${SAMPLE_STRIDE:-64}"
 REUSE_THRESHOLD="${REUSE_THRESHOLD:-0.8}"
 FILL_BUDGET_WITH_SCORE="${FILL_BUDGET_WITH_SCORE:-1}"
@@ -80,6 +84,11 @@ fi
 sparse_fill_args=()
 if [[ "${FILL_BUDGET_WITH_SCORE}" == "1" ]]; then
   sparse_fill_args+=(--fill-budget-with-score)
+fi
+
+required_budget_args=()
+if [[ "${REQUIRED_BLOCKS_OUTSIDE_BUDGET}" == "1" ]]; then
+  required_budget_args+=(--required-blocks-outside-budget)
 fi
 
 run_full() {
@@ -131,6 +140,8 @@ run_sparse() {
       "${optional_common_args[@]}" \
       --block-size "${BLOCK_SIZE}" \
       --local-window-blocks "${LOCAL_WINDOW_BLOCKS}" \
+      --sink-tokens "${SINK_TOKENS}" \
+      "${required_budget_args[@]}" \
       --sample-stride "${SAMPLE_STRIDE}" \
       --budget-tokens "${BUDGET_TOKENS}" \
       --reuse-threshold "${REUSE_THRESHOLD}" \
@@ -151,6 +162,8 @@ run_sparse() {
       "${optional_common_args[@]}" \
       --block-size "${BLOCK_SIZE}" \
       --local-window-blocks "${LOCAL_WINDOW_BLOCKS}" \
+      --sink-tokens "${SINK_TOKENS}" \
+      "${required_budget_args[@]}" \
       --sample-stride "${SAMPLE_STRIDE}" \
       --budget-tokens "${BUDGET_TOKENS}" \
       --reuse-threshold "${REUSE_THRESHOLD}" \
