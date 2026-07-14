@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import sys
@@ -47,6 +48,17 @@ def parse_args() -> argparse.Namespace:
         description="Prepare non-LongBench JSONL training prompts for AdaBlock oracle generation."
     )
     parser.add_argument("--output-jsonl", default="data/train_non_longbench.jsonl")
+    parser.add_argument(
+        "--validation-output-jsonl",
+        default=None,
+        help="Validation JSONL. Defaults to <output stem>_val.jsonl.",
+    )
+    parser.add_argument("--validation-ratio", type=float, default=0.1)
+    parser.add_argument(
+        "--allow-longbench-training",
+        action="store_true",
+        help="Explicit opt-in for local LongBench sources. Keep disabled for clean evaluation.",
+    )
     parser.add_argument(
         "--sources",
         nargs="+",
@@ -272,55 +284,122 @@ def load_local_jsonl(path: str | Path, max_chars: int) -> Iterable[dict[str, str
                 yield {"source": "local", "text": limit_chars(text, max_chars)}
 
 
+def stable_document_id(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:20]
+
+
+def write_split(path: Path, rows: list[dict[str, str]], split: str) -> dict[str, int]:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    counts: dict[str, int] = {}
+    with path.open("w", encoding="utf-8") as out:
+        for row in rows:
+            payload = {**row, "split": split}
+            out.write(json.dumps(payload, ensure_ascii=False) + "\n")
+            source = row["source"]
+            counts[source] = counts.get(source, 0) + 1
+    return counts
+
+
 def main() -> None:
     args = parse_args()
-    random.seed(args.seed)
+    if not 0.0 <= args.validation_ratio < 1.0:
+        raise ValueError("--validation-ratio must be in [0, 1).")
+    longbench_sources = set(args.sources) & set(LONGBENCH_LOCAL_SOURCES)
+    if longbench_sources and not args.allow_longbench_training:
+        raise ValueError(
+            "LongBench sources are disabled for training to prevent test leakage: "
+            f"{sorted(longbench_sources)}. Use non-LongBench train splits, or pass "
+            "--allow-longbench-training only for an intentional diagnostic."
+        )
+
+    collected: list[dict[str, str]] = []
+    seen_doc_ids: set[str] = set()
+
+    def append_row(row: dict[str, str]) -> None:
+        text = row["text"].strip()
+        if len(text) < args.min_chars:
+            return
+        doc_id = stable_document_id(text)
+        if doc_id in seen_doc_ids:
+            return
+        seen_doc_ids.add(doc_id)
+        collected.append({"doc_id": doc_id, "text": text, "source": row["source"]})
+
+    for source in args.sources:
+        if source == "needle":
+            rows = load_needle_source(args)
+        elif source in LONGBENCH_LOCAL_SOURCES:
+            rows = load_longbench_local_source(
+                source=source,
+                local_dir=args.longbench_local_dir,
+                max_samples=args.max_samples_per_source,
+                max_chars=args.max_chars,
+            )
+        else:
+            rows = load_hf_source(
+                source,
+                split=args.split,
+                max_samples=args.max_samples_per_source,
+                max_chars=args.max_chars,
+            )
+        try:
+            for row in rows:
+                append_row(row)
+        except Exception as exc:
+            if args.strict_sources:
+                raise
+            print(f"[warn] skipped source={source}: {exc}", file=sys.stderr)
+
+    if args.local_jsonl:
+        for row in load_local_jsonl(args.local_jsonl, args.max_chars):
+            append_row(row)
+
+    by_source: dict[str, list[dict[str, str]]] = {}
+    for row in collected:
+        by_source.setdefault(row["source"], []).append(row)
+
+    rng = random.Random(args.seed)
+    train_rows: list[dict[str, str]] = []
+    validation_rows: list[dict[str, str]] = []
+    for source in sorted(by_source):
+        rows = by_source[source]
+        rng.shuffle(rows)
+        val_size = int(round(len(rows) * args.validation_ratio))
+        if args.validation_ratio > 0 and len(rows) > 1:
+            val_size = min(max(val_size, 1), len(rows) - 1)
+        validation_rows.extend(rows[:val_size])
+        train_rows.extend(rows[val_size:])
+
+    rng.shuffle(train_rows)
+    rng.shuffle(validation_rows)
     output_path = Path(args.output_jsonl)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    validation_path = (
+        Path(args.validation_output_jsonl)
+        if args.validation_output_jsonl
+        else output_path.with_name(f"{output_path.stem}_val{output_path.suffix}")
+    )
+    train_counts = write_split(output_path, train_rows, "train")
+    validation_counts = write_split(validation_path, validation_rows, "validation")
 
-    counts: dict[str, int] = {}
-    total = 0
-    with output_path.open("w", encoding="utf-8") as out:
-        for source in args.sources:
-            if source == "needle":
-                rows = load_needle_source(args)
-            elif source in LONGBENCH_LOCAL_SOURCES:
-                rows = load_longbench_local_source(
-                    source=source,
-                    local_dir=args.longbench_local_dir,
-                    max_samples=args.max_samples_per_source,
-                    max_chars=args.max_chars,
-                )
-            else:
-                rows = load_hf_source(
-                    source,
-                    split=args.split,
-                    max_samples=args.max_samples_per_source,
-                    max_chars=args.max_chars,
-                )
-            try:
-                for row in rows:
-                    text = row["text"].strip()
-                    if len(text) < args.min_chars:
-                        continue
-                    out.write(json.dumps({"text": text, "source": row["source"]}, ensure_ascii=False) + "\n")
-                    counts[row["source"]] = counts.get(row["source"], 0) + 1
-                    total += 1
-            except Exception as exc:
-                if args.strict_sources:
-                    raise
-                print(f"[warn] skipped source={source}: {exc}", file=sys.stderr)
+    train_ids = {row["doc_id"] for row in train_rows}
+    validation_ids = {row["doc_id"] for row in validation_rows}
+    overlap = train_ids & validation_ids
+    if overlap:
+        raise RuntimeError(f"Document leakage detected after splitting: {len(overlap)} ids")
 
-        if args.local_jsonl:
-            for row in load_local_jsonl(args.local_jsonl, args.max_chars):
-                text = row["text"].strip()
-                if len(text) < args.min_chars:
-                    continue
-                out.write(json.dumps({"text": text, "source": row["source"]}, ensure_ascii=False) + "\n")
-                counts[row["source"]] = counts.get(row["source"], 0) + 1
-                total += 1
-
-    print({"output": str(output_path), "total": total, "counts": counts})
+    print(
+        {
+            "train_output": str(output_path),
+            "validation_output": str(validation_path),
+            "unique_documents": len(collected),
+            "train_documents": len(train_rows),
+            "validation_documents": len(validation_rows),
+            "train_counts": train_counts,
+            "validation_counts": validation_counts,
+            "document_overlap": 0,
+            "seed": args.seed,
+        }
+    )
 
 
 if __name__ == "__main__":

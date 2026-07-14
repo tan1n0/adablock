@@ -8,12 +8,13 @@ set -euo pipefail
 # Edit the variables below before running if needed.
 
 MODEL_NAME="Qwen/Qwen2.5-7B-Instruct"
-POLICY_CHECKPOINT="checkpoints/adablock_policy_longbench_qa_1024/best.pt"
+POLICY_CHECKPOINT="checkpoints/policy_mlp/best.pt"
 TASKS=("hotpotqa" "musique")
 LOCAL_DATA_DIR="data/longbench"
 MAX_INPUT_LENGTH=2048
 MAX_SAMPLES=20
 BLOCK_SIZE=16
+SINK_TOKENS=32
 LOCAL_WINDOW_BLOCKS=4
 SAMPLE_STRIDE=64
 MAX_NEW_TOKENS=32
@@ -74,6 +75,7 @@ run_sparse() {
       --max-input-length "${MAX_INPUT_LENGTH}" \
       --max-samples "${MAX_SAMPLES}" \
       --block-size "${BLOCK_SIZE}" \
+      --sink-tokens "${SINK_TOKENS}" \
       --local-window-blocks "${LOCAL_WINDOW_BLOCKS}" \
       --sample-stride "${SAMPLE_STRIDE}" \
       --budget-tokens "${budget}" \

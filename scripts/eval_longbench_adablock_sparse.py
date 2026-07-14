@@ -19,13 +19,14 @@ if str(ROOT) not in sys.path:
 
 from models.adablock_policy import AdaBlockPolicy, AdaBlockPolicyConfig
 from utils.block_oracle import (
-    OracleConfig,
     aggregate_block_mass,
-    block_categories,
     cosine_block_scores,
+    fill_selection_to_total_budget,
+    fixed_and_middle_blocks,
     make_block_ranges,
     quest_block_scores,
     score_summary_features,
+    select_middle_blocks,
     top_blocks,
 )
 from utils.longbench_eval import (
@@ -60,6 +61,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-input-length", type=int, default=8192)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--block-size", type=int, default=16)
+    parser.add_argument("--sink-tokens", type=int, default=32)
     parser.add_argument("--local-window-blocks", type=int, default=4)
     parser.add_argument("--sample-stride", type=int, default=16)
     parser.add_argument("--budget-tokens", type=int, default=512)
@@ -126,43 +128,6 @@ def load_policy(path: str | Path, device: torch.device) -> AdaBlockPolicy:
     policy.to(device)
     policy.eval()
     return policy
-
-
-def category_allocate(
-    scores: torch.Tensor,
-    categories: torch.Tensor,
-    category_prob: torch.Tensor,
-    budget: int,
-    max_blocks: int,
-) -> set[int]:
-    if scores.numel() == 0 or budget <= 0:
-        return set()
-    budget = min(budget, max_blocks, scores.numel())
-    raw_alloc = torch.floor(category_prob.cpu() * budget).long()
-    remaining = budget - int(raw_alloc.sum().item())
-    if remaining > 0:
-        order = torch.argsort(category_prob.cpu(), descending=True).tolist()
-        for idx in order[:remaining]:
-            raw_alloc[idx] += 1
-
-    selected: set[int] = set()
-    for category_idx, k in enumerate(raw_alloc.tolist()):
-        if k <= 0:
-            continue
-        candidates = torch.nonzero(categories == category_idx, as_tuple=False).flatten()
-        if candidates.numel() == 0:
-            continue
-        candidate_scores = scores[candidates]
-        take = min(k, candidates.numel())
-        top_local = torch.topk(candidate_scores, k=take).indices
-        selected.update(candidates[top_local].tolist())
-
-    if len(selected) < budget:
-        for idx in torch.argsort(scores, descending=True).tolist():
-            selected.add(idx)
-            if len(selected) >= budget:
-                break
-    return selected
 
 
 def fill_selection_with_scores(
@@ -410,12 +375,11 @@ def run_sparse_decode(
     generated_ids = [next_token_id]
     current_input_token = teacher_forced_ids[0] if teacher_forced_ids else generated_ids[-1]
 
-    oracle_config = OracleConfig(block_size=args.block_size, local_window_blocks=args.local_window_blocks)
+    sink_blocks = (args.sink_tokens + args.block_size - 1) // args.block_size
     max_blocks = args.budget_tokens // args.block_size
     layer_devices = get_layer_devices(model)
-    prompt_block_count = len(make_block_ranges(int(input_ids.shape[-1]), args.block_size))
     previous_hidden = None
-    previous_selection: set[int] = set()
+    previous_middle_selection: set[int] = set()
     selected_blocks_sum = 0.0
     selected_steps = 0
     reuse_steps = 0
@@ -448,6 +412,14 @@ def run_sparse_decode(
                 scores = quest_block_scores(hidden_history, candidate_ranges, current_token_index)
             else:
                 scores = cosine_block_scores(hidden_history, candidate_ranges, current_token_index)
+            sink, local, middle = fixed_and_middle_blocks(
+                num_blocks=len(candidate_ranges),
+                sink_blocks=sink_blocks,
+                local_window_blocks=args.local_window_blocks,
+                current_block=current_block,
+            )
+            fixed_blocks = sink | local
+            dynamic_capacity = max(0, max_blocks - len(fixed_blocks))
             if args.selection_mode == "oracle_topk":
                 dense_token_indices = list(range(history_len))
                 dense_past = slice_past_key_values(full_past_key_values, dense_token_indices, layer_devices)
@@ -474,7 +446,8 @@ def run_sparse_decode(
                 token_attention = dense_mean_attention[0, :history_len]
                 block_mass = aggregate_block_mass(token_attention, candidate_ranges)
                 block_mass = block_mass / block_mass.sum().clamp_min(1e-8)
-                selected_blocks = set(top_blocks(block_mass, max_blocks))
+                dynamic_blocks = set(top_blocks(block_mass, dynamic_capacity, candidates=middle))
+                selected_blocks = fixed_blocks | dynamic_blocks
                 dense_step_past = normalize_past_key_values(dense_outputs.past_key_values)
                 full_past_key_values = append_last_kv(full_past_key_values, dense_step_past)
                 new_hidden = dense_outputs.last_hidden_state[0, -1].detach().cpu().float().unsqueeze(0)
@@ -482,15 +455,14 @@ def run_sparse_decode(
                 previous_hidden = hidden_history[-2]
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             elif args.selection_mode in {"score_topk", "quest_topk"}:
-                selected_blocks = set(torch.topk(scores, k=min(max_blocks, scores.numel())).indices.tolist())
-                selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
+                dynamic_blocks = select_middle_blocks(scores, middle, dynamic_capacity)
+                selected_blocks = fixed_blocks | dynamic_blocks
                 if args.fill_budget_with_score:
-                    selected_blocks = fill_selection_with_scores(
-                        selected_blocks,
-                        scores,
-                        budget=max_blocks,
-                        max_blocks=max_blocks,
-                        required_blocks=local_blocks,
+                    selected_blocks = fill_selection_to_total_budget(
+                        selected=selected_blocks,
+                        scores=scores,
+                        total_budget_blocks=max_blocks,
+                        required_blocks=fixed_blocks,
                     )
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
             else:
@@ -509,15 +481,6 @@ def run_sparse_decode(
                             ).item()
                         ]
                     )
-                high_hit_count = max(1, int(0.1 * len(candidate_ranges)))
-                high_hit_blocks = set(torch.topk(scores, k=min(high_hit_count, scores.numel())).indices.tolist())
-                categories = block_categories(
-                    num_blocks=len(candidate_ranges),
-                    prompt_blocks=prompt_block_count,
-                    current_block=current_block,
-                    high_hit_blocks=high_hit_blocks,
-                    config=oracle_config,
-                )
                 with torch.no_grad():
                     policy_outputs = policy(
                         hidden_state=hidden_history[current_token_index].unsqueeze(0).to(policy_device),
@@ -525,30 +488,25 @@ def run_sparse_decode(
                         score_features=score_features.to(policy_device),
                     )
                 bucket_idx = int(policy_outputs["budget_prob"].argmax(dim=-1).item())
-                predicted_k = min(bucket_values[bucket_idx], max_blocks)
-                selected_blocks = category_allocate(
-                    scores=scores,
-                    categories=categories,
-                    category_prob=policy_outputs["category_prob"][0].detach().cpu(),
-                    budget=predicted_k,
-                    max_blocks=max_blocks,
-                )
-                selected_blocks = enforce_local_window(selected_blocks, current_block, args.local_window_blocks)
+                predicted_middle_k = min(bucket_values[bucket_idx], dynamic_capacity, len(middle))
+                current_middle = select_middle_blocks(scores, middle, predicted_middle_k)
                 reuse = float(policy_outputs["reuse_prob"].item()) > args.reuse_threshold
-                if reuse and previous_selection:
-                    selected_blocks = set(previous_selection)
+                reusable_middle = previous_middle_selection & middle
+                if reuse and reusable_middle:
+                    dynamic_blocks = reusable_middle
                     reuse_steps += 1
+                else:
+                    dynamic_blocks = current_middle
+                selected_blocks = fixed_blocks | dynamic_blocks
                 if args.fill_budget_with_score:
-                    selected_blocks = fill_selection_with_scores(
-                        selected_blocks,
-                        scores,
-                        budget=max_blocks,
-                        max_blocks=max_blocks,
-                        required_blocks=local_blocks,
+                    selected_blocks = fill_selection_to_total_budget(
+                        selected=selected_blocks,
+                        scores=scores,
+                        total_budget_blocks=max_blocks,
+                        required_blocks=fixed_blocks,
                     )
                 token_indices = blocks_to_token_indices(selected_blocks, candidate_ranges)
-                previous_selection = set(selected_blocks)
-
+                previous_middle_selection = selected_blocks - fixed_blocks
         selected_blocks_sum += len(selected_blocks)
         selected_steps += 1
         sparse_past = slice_past_key_values(full_past_key_values, token_indices, layer_devices)

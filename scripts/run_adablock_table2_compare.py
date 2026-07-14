@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tasks", nargs="+", default=None)
     parser.add_argument("--methods", nargs="+", default=["full", "policy"], choices=["full", "policy", "score_topk", "quest_topk"])
     parser.add_argument("--model-name", default="Qwen/Qwen2.5-7B-Instruct")
-    parser.add_argument("--policy-checkpoint", default="checkpoints/adablock_policy_longbench_qa_1024/best.pt")
+    parser.add_argument("--policy-checkpoint", default="checkpoints/policy_mlp/best.pt")
     parser.add_argument("--local-data-dir", default="data/longbench")
     parser.add_argument("--result-root", default=None)
     parser.add_argument("--log-dir", default=None)
@@ -40,6 +40,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-new-tokens-override", type=int, default=None)
     parser.add_argument("--budget-tokens", type=int, default=512)
     parser.add_argument("--block-size", type=int, default=16)
+    parser.add_argument("--sink-tokens", type=int, default=32)
     parser.add_argument("--local-window-blocks", type=int, default=4)
     parser.add_argument("--sample-stride", type=int, default=64)
     parser.add_argument("--reuse-threshold", type=float, default=0.8)
@@ -95,6 +96,8 @@ def command_for_method(
         str(output_dir),
         "--block-size",
         str(args.block_size),
+        "--sink-tokens",
+        str(args.sink_tokens),
         "--local-window-blocks",
         str(args.local_window_blocks),
         "--sample-stride",

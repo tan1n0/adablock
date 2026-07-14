@@ -3,12 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import random
 import sys
 from pathlib import Path
 from typing import Any
 
 import torch
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset, Subset
 from tqdm.auto import tqdm
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from models.adablock_policy import (
+    POLICY_ARCHITECTURES,
     AdaBlockPolicy,
     AdaBlockPolicyConfig,
     adablock_policy_loss,
@@ -23,18 +25,33 @@ from models.adablock_policy import (
 
 
 class AdaBlockOracleDataset(Dataset):
-    def __init__(self, path: str | Path, drop_nonfinite: bool = True) -> None:
+    def __init__(
+        self,
+        path: str | Path,
+        drop_nonfinite: bool = True,
+        allow_legacy_oracle: bool = False,
+    ) -> None:
+        self.path = Path(path)
         self.rows: list[dict[str, Any]] = []
         self.dropped_nonfinite = 0
-        with Path(path).open("r", encoding="utf-8") as handle:
+        self.legacy_rows = 0
+        with self.path.open("r", encoding="utf-8") as handle:
             for line in handle:
-                if line.strip():
-                    row = json.loads(line)
-                    if drop_nonfinite and self._has_nonfinite(row):
-                        self.dropped_nonfinite += 1
-                        continue
-                    self.rows.append(row)
-
+                if not line.strip():
+                    continue
+                row = json.loads(line)
+                if drop_nonfinite and self._has_nonfinite(row):
+                    self.dropped_nonfinite += 1
+                    continue
+                if "eligible_middle_blocks" not in row:
+                    self.legacy_rows += 1
+                self.rows.append(row)
+        if self.legacy_rows and not allow_legacy_oracle:
+            raise ValueError(
+                f"{self.path} contains {self.legacy_rows} legacy Oracle rows without "
+                "dynamic-middle metadata. Rebuild it with the current "
+                "build_oracle_dataset.py, or pass --allow-legacy-oracle intentionally."
+            )
     @staticmethod
     def _has_nonfinite(value: Any) -> bool:
         if isinstance(value, float):
@@ -56,6 +73,16 @@ class AdaBlockOracleDataset(Dataset):
             raise ValueError("Training dataset is empty.")
         return len(self.rows[0]["hidden_state"])
 
+    def document_key(self, idx: int) -> tuple[str, str]:
+        row = self.rows[idx]
+        source = str(row.get("source", "unknown"))
+        doc_id = row.get("source_doc_id", row.get("doc_id", idx))
+        return source, str(doc_id)
+
+    @property
+    def document_keys(self) -> set[tuple[str, str]]:
+        return {self.document_key(idx) for idx in range(len(self.rows))}
+
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         row = self.rows[idx]
         return {
@@ -65,90 +92,196 @@ class AdaBlockOracleDataset(Dataset):
             "prev_feedback": torch.tensor(row.get("prev_feedback", [0.0] * 8), dtype=torch.float32),
             "budget_label": torch.tensor(row["budget_label"], dtype=torch.long),
             "reuse_label": torch.tensor(row["reuse_label"], dtype=torch.float32),
-            "category_target": torch.tensor(row["category_target"], dtype=torch.float32),
         }
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-jsonl", required=True)
+    parser.add_argument(
+        "--val-jsonl",
+        default=None,
+        help="Independent document-level validation Oracle. Recommended.",
+    )
     parser.add_argument("--output-dir", default="checkpoints/adablock_policy")
-    parser.add_argument("--epochs", type=int, default=3)
+    parser.add_argument("--architecture", choices=POLICY_ARCHITECTURES, default="mlp")
+    parser.add_argument("--projection-size", type=int, default=64)
+    parser.add_argument("--mlp-hidden-size", type=int, default=128)
+    parser.add_argument("--num-layers", type=int, default=2)
+    parser.add_argument("--num-attention-heads", type=int, default=4)
+    parser.add_argument("--dropout", type=float, default=0.05)
+    parser.add_argument(
+        "--budget-buckets",
+        nargs="+",
+        type=int,
+        default=[0, 4, 8, 16, 32, 64, 128],
+    )
+    parser.add_argument("--epochs", type=int, default=10)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--weight-decay", type=float, default=0.01)
-    parser.add_argument("--val-ratio", type=float, default=0.05)
+    parser.add_argument("--val-ratio", type=float, default=0.1)
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--lambda-budget", type=float, default=1.0)
     parser.add_argument("--lambda-reuse", type=float, default=1.0)
-    parser.add_argument("--lambda-category", type=float, default=1.0)
     parser.add_argument("--lambda-cost", type=float, default=0.01)
     parser.add_argument("--keep-nonfinite", action="store_true")
+    parser.add_argument("--allow-legacy-oracle", action="store_true")
+    parser.add_argument(
+        "--metrics-jsonl",
+        default=None,
+        help="Per-epoch metrics path. Defaults to <output-dir>/metrics.jsonl.",
+    )
     return parser.parse_args()
+
+
+def grouped_train_val_split(
+    dataset: AdaBlockOracleDataset,
+    val_ratio: float,
+    seed: int,
+) -> tuple[Subset, Subset | None]:
+    if not 0.0 <= val_ratio < 1.0:
+        raise ValueError("--val-ratio must be in [0, 1).")
+    if val_ratio == 0 or len(dataset.document_keys) < 2:
+        return Subset(dataset, list(range(len(dataset)))), None
+
+    group_to_indices: dict[tuple[str, str], list[int]] = {}
+    for idx in range(len(dataset)):
+        group_to_indices.setdefault(dataset.document_key(idx), []).append(idx)
+    group_keys = list(group_to_indices)
+    random.Random(seed).shuffle(group_keys)
+
+    target_val_rows = max(1, int(round(len(dataset) * val_ratio)))
+    val_keys: set[tuple[str, str]] = set()
+    val_rows = 0
+    for key in group_keys:
+        if len(val_keys) >= len(group_keys) - 1:
+            break
+        val_keys.add(key)
+        val_rows += len(group_to_indices[key])
+        if val_rows >= target_val_rows:
+            break
+
+    train_indices: list[int] = []
+    val_indices: list[int] = []
+    for key, indices in group_to_indices.items():
+        (val_indices if key in val_keys else train_indices).extend(indices)
+    return Subset(dataset, train_indices), Subset(dataset, val_indices)
 
 
 def move_batch(batch: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
     return {key: value.to(device) for key, value in batch.items()}
 
 
+def batch_metrics(
+    model: AdaBlockPolicy,
+    batch: dict[str, torch.Tensor],
+    args: argparse.Namespace,
+) -> tuple[dict[str, torch.Tensor], dict[str, torch.Tensor]]:
+    outputs = model(
+        hidden_state=batch["hidden_state"],
+        query_drift=batch["query_drift"],
+        score_features=batch["score_features"],
+        prev_feedback=batch["prev_feedback"],
+    )
+    losses = adablock_policy_loss(
+        outputs,
+        budget_label=batch["budget_label"],
+        reuse_label=batch["reuse_label"],
+        budget_buckets=model.config.budget_buckets,
+        lambda_budget=args.lambda_budget,
+        lambda_reuse=args.lambda_reuse,
+        lambda_cost=args.lambda_cost,
+    )
+    return outputs, losses
+
+
+def empty_totals() -> dict[str, float]:
+    return {
+        "loss": 0.0,
+        "budget_loss": 0.0,
+        "reuse_loss": 0.0,
+        "cost_loss": 0.0,
+        "budget_acc": 0.0,
+        "reuse_acc": 0.0,
+    }
+
+
+def update_totals(
+    totals: dict[str, float],
+    outputs: dict[str, torch.Tensor],
+    losses: dict[str, torch.Tensor],
+    batch: dict[str, torch.Tensor],
+) -> int:
+    batch_size = batch["hidden_state"].shape[0]
+    for name in ("loss", "budget_loss", "reuse_loss", "cost_loss"):
+        totals[name] += float(losses[name].item()) * batch_size
+    totals["budget_acc"] += (
+        outputs["budget_logits"].argmax(dim=-1) == batch["budget_label"]
+    ).float().sum().item()
+    totals["reuse_acc"] += (
+        (outputs["reuse_prob"] > 0.5).float() == batch["reuse_label"]
+    ).float().sum().item()
+    return batch_size
+
+
+def finalize_totals(totals: dict[str, float], count: int) -> dict[str, float]:
+    return {key: value / max(count, 1) for key, value in totals.items()}
+
+
 @torch.no_grad()
-def evaluate(model: AdaBlockPolicy, loader: DataLoader, device: torch.device, args: argparse.Namespace) -> dict[str, float]:
+def evaluate(
+    model: AdaBlockPolicy,
+    loader: DataLoader,
+    device: torch.device,
+    args: argparse.Namespace,
+) -> dict[str, float]:
     model.eval()
-    totals = {"loss": 0.0, "budget_acc": 0.0, "reuse_acc": 0.0}
+    totals = empty_totals()
     count = 0
     for batch in loader:
         batch = move_batch(batch, device)
-        outputs = model(
-            hidden_state=batch["hidden_state"],
-            query_drift=batch["query_drift"],
-            score_features=batch["score_features"],
-            prev_feedback=batch["prev_feedback"],
-        )
-        losses = adablock_policy_loss(
-            outputs,
-            budget_label=batch["budget_label"],
-            reuse_label=batch["reuse_label"],
-            category_target=batch["category_target"],
-            lambda_budget=args.lambda_budget,
-            lambda_reuse=args.lambda_reuse,
-            lambda_category=args.lambda_category,
-            lambda_cost=args.lambda_cost,
-        )
-        batch_size = batch["hidden_state"].shape[0]
-        totals["loss"] += float(losses["loss"].item()) * batch_size
-        totals["budget_acc"] += (
-            outputs["budget_logits"].argmax(dim=-1) == batch["budget_label"]
-        ).float().sum().item()
-        totals["reuse_acc"] += (
-            (outputs["reuse_prob"] > 0.5).float() == batch["reuse_label"]
-        ).float().sum().item()
-        count += batch_size
-    return {key: value / max(count, 1) for key, value in totals.items()}
+        outputs, losses = batch_metrics(model, batch, args)
+        count += update_totals(totals, outputs, losses, batch)
+    return finalize_totals(totals, count)
 
 
 def main() -> None:
     args = parse_args()
     torch.manual_seed(args.seed)
+    random.seed(args.seed)
     device = torch.device(args.device)
 
-    dataset = AdaBlockOracleDataset(args.train_jsonl, drop_nonfinite=not args.keep_nonfinite)
-    if len(dataset) == 0:
+    train_dataset_full = AdaBlockOracleDataset(
+        args.train_jsonl,
+        drop_nonfinite=not args.keep_nonfinite,
+        allow_legacy_oracle=args.allow_legacy_oracle,
+    )
+    if len(train_dataset_full) == 0:
         raise ValueError("Training dataset is empty.")
-    if dataset.dropped_nonfinite:
-        print({"event": "dropped_nonfinite_rows", "count": dataset.dropped_nonfinite})
+    if train_dataset_full.dropped_nonfinite:
+        print({"event": "dropped_nonfinite_train_rows", "count": train_dataset_full.dropped_nonfinite})
 
-    val_size = max(1, int(len(dataset) * args.val_ratio)) if len(dataset) > 1 else 0
-    train_size = len(dataset) - val_size
-    if val_size > 0:
-        train_dataset, val_dataset = random_split(
-            dataset,
-            [train_size, val_size],
-            generator=torch.Generator().manual_seed(args.seed),
+    if args.val_jsonl:
+        val_dataset_full = AdaBlockOracleDataset(
+            args.val_jsonl,
+            drop_nonfinite=not args.keep_nonfinite,
+            allow_legacy_oracle=args.allow_legacy_oracle,
         )
+        overlap = train_dataset_full.document_keys & val_dataset_full.document_keys
+        if overlap:
+            preview = sorted(overlap)[:5]
+            raise ValueError(
+                f"Train/validation document leakage: {len(overlap)} overlapping ids; examples={preview}"
+            )
+        train_dataset: Dataset = train_dataset_full
+        val_dataset: Dataset | None = val_dataset_full
     else:
-        train_dataset, val_dataset = dataset, None
+        train_dataset, val_dataset = grouped_train_val_split(
+            train_dataset_full, args.val_ratio, args.seed
+        )
 
     train_loader = DataLoader(
         train_dataset,
@@ -158,62 +291,109 @@ def main() -> None:
         pin_memory=device.type == "cuda",
     )
     val_loader = (
-        DataLoader(val_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
+        DataLoader(
+            val_dataset,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            pin_memory=device.type == "cuda",
+        )
         if val_dataset is not None
         else None
     )
 
-    model = AdaBlockPolicy(AdaBlockPolicyConfig(hidden_size=dataset.hidden_size)).to(device)
+    config = AdaBlockPolicyConfig(
+        hidden_size=train_dataset_full.hidden_size,
+        projection_size=args.projection_size,
+        mlp_hidden_size=args.mlp_hidden_size,
+        budget_buckets=tuple(args.budget_buckets),
+        dropout=args.dropout,
+        architecture=args.architecture,
+        num_layers=args.num_layers,
+        num_attention_heads=args.num_attention_heads,
+    )
+    model = AdaBlockPolicy(config).to(device)
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.lr, weight_decay=args.weight_decay
     )
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
-    best_val = float("inf")
+    metrics_path = Path(args.metrics_jsonl) if args.metrics_jsonl else output_dir / "metrics.jsonl"
+    metrics_path.parent.mkdir(parents=True, exist_ok=True)
+    metrics_path.write_text("", encoding="utf-8")
 
+    parameter_count = sum(parameter.numel() for parameter in model.parameters())
+    print(
+        {
+            "event": "training_setup",
+            "architecture": args.architecture,
+            "parameters": parameter_count,
+            "train_rows": len(train_dataset),
+            "validation_rows": len(val_dataset) if val_dataset is not None else 0,
+            "train_documents": len(train_dataset_full.document_keys),
+            "validation_documents": (
+                len(val_dataset_full.document_keys) if args.val_jsonl else None
+            ),
+            "lr": args.lr,
+            "budget_buckets": config.budget_buckets,
+            "metrics_jsonl": str(metrics_path),
+        }
+    )
+
+    best_val = float("inf")
+    history: list[dict[str, Any]] = []
     for epoch in range(1, args.epochs + 1):
         model.train()
+        train_totals = empty_totals()
+        train_count = 0
         progress = tqdm(train_loader, desc=f"epoch {epoch}")
         for batch in progress:
             batch = move_batch(batch, device)
-            outputs = model(
-                hidden_state=batch["hidden_state"],
-                query_drift=batch["query_drift"],
-                score_features=batch["score_features"],
-                prev_feedback=batch["prev_feedback"],
-            )
-            losses = adablock_policy_loss(
-                outputs,
-                budget_label=batch["budget_label"],
-                reuse_label=batch["reuse_label"],
-                category_target=batch["category_target"],
-                lambda_budget=args.lambda_budget,
-                lambda_reuse=args.lambda_reuse,
-                lambda_category=args.lambda_category,
-                lambda_cost=args.lambda_cost,
-            )
+            outputs, losses = batch_metrics(model, batch, args)
             optimizer.zero_grad(set_to_none=True)
             losses["loss"].backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.step()
-            progress.set_postfix(loss=f"{losses['loss'].item():.4f}")
+            train_count += update_totals(train_totals, outputs, losses, batch)
+            progress.set_postfix(
+                loss=f"{losses['loss'].item():.4f}",
+                budget=f"{losses['budget_loss'].item():.4f}",
+                reuse=f"{losses['reuse_loss'].item():.4f}",
+                cost=f"{losses['cost_loss'].item():.4f}",
+            )
 
-        metrics = evaluate(model, val_loader, device, args) if val_loader is not None else {}
+        train_metrics = finalize_totals(train_totals, train_count)
+        val_metrics = evaluate(model, val_loader, device, args) if val_loader is not None else {}
+        record: dict[str, Any] = {
+            "epoch": epoch,
+            "architecture": args.architecture,
+            "lr": optimizer.param_groups[0]["lr"],
+            "train": train_metrics,
+            "validation": val_metrics,
+        }
+        history.append(record)
+        with metrics_path.open("a", encoding="utf-8") as metrics_file:
+            metrics_file.write(json.dumps(record, ensure_ascii=False) + "\n")
+
         checkpoint = {
             "model": model.state_dict(),
             "config": model.config.__dict__,
             "epoch": epoch,
-            "metrics": metrics,
+            "metrics": val_metrics,
+            "train_metrics": train_metrics,
+            "history": history,
+            "training_args": vars(args),
         }
         torch.save(checkpoint, output_dir / "last.pt")
-        if metrics and metrics["loss"] < best_val:
-            best_val = metrics["loss"]
-            torch.save(checkpoint, output_dir / "best.pt")
-        elif not metrics:
+        selection_loss = val_metrics.get("loss", train_metrics["loss"])
+        if selection_loss < best_val:
+            best_val = selection_loss
             torch.save(checkpoint, output_dir / "best.pt")
 
-        print({"epoch": epoch, **metrics})
+        print(record)
+
+    with (output_dir / "history.json").open("w", encoding="utf-8") as history_file:
+        json.dump(history, history_file, indent=2, ensure_ascii=False)
 
 
 if __name__ == "__main__":

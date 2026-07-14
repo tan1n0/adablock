@@ -17,12 +17,11 @@ if str(ROOT) not in sys.path:
 from utils.block_oracle import (
     OracleConfig,
     aggregate_block_mass,
-    block_categories,
-    category_target,
     cosine_block_scores,
+    dynamic_oracle_budget_label,
+    fixed_and_middle_blocks,
     make_block_ranges,
-    oracle_budget_label,
-    reuse_label_from_previous,
+    reuse_label_from_previous_middle,
     score_summary_features,
     top_blocks,
 )
@@ -36,6 +35,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--text-field", default="text")
     parser.add_argument("--max-length", type=int, default=4096)
     parser.add_argument("--block-size", type=int, default=16)
+    parser.add_argument(
+        "--sink-tokens",
+        type=int,
+        default=32,
+        help="Always-retained prefix tokens. Rounded up to complete blocks.",
+    )
+    parser.add_argument("--local-window-blocks", type=int, default=4)
+    parser.add_argument(
+        "--budget-buckets",
+        nargs="+",
+        type=int,
+        default=[0, 4, 8, 16, 32, 64, 128],
+        help="Dynamic middle-block budget buckets.",
+    )
     parser.add_argument("--coverage", type=float, default=0.9)
     parser.add_argument("--reuse-coverage", type=float, default=0.9)
     parser.add_argument("--max-docs", type=int, default=None)
@@ -92,7 +105,9 @@ def iter_texts(path: Path, field: str, max_docs: int | None):
             row = json.loads(line)
             text = row[field] if isinstance(row, dict) else str(row)
             if text.strip():
-                yield idx, text
+                source = row.get("source", "unknown") if isinstance(row, dict) else "unknown"
+                source_doc_id = row.get("doc_id", idx) if isinstance(row, dict) else idx
+                yield idx, text, source, source_doc_id
 
 
 def select_oracle_attentions(attentions: torch.Tensor, layer_indices: list[int] | None) -> torch.Tensor:
@@ -108,8 +123,12 @@ def select_oracle_attentions(attentions: torch.Tensor, layer_indices: list[int] 
 
 def main() -> None:
     args = parse_args()
+    sink_blocks = (args.sink_tokens + args.block_size - 1) // args.block_size
     config = OracleConfig(
         block_size=args.block_size,
+        sink_blocks=sink_blocks,
+        local_window_blocks=args.local_window_blocks,
+        budget_buckets=tuple(args.budget_buckets),
         coverage_threshold=args.coverage,
         reuse_coverage_threshold=args.reuse_coverage,
     )
@@ -150,6 +169,9 @@ def main() -> None:
             "device_map": getattr(model, "hf_device_map", None),
             "model_device": str(model.device),
             "oracle_layer_indices": args.oracle_layer_indices,
+            "sink_blocks": config.sink_blocks,
+            "local_window_blocks": config.local_window_blocks,
+            "budget_buckets": config.budget_buckets,
         },
         flush=True,
     )
@@ -159,7 +181,9 @@ def main() -> None:
 
     with output_path.open("w", encoding="utf-8") as out:
         text_iter = iter_texts(Path(args.input_jsonl), args.text_field, args.max_docs)
-        for doc_id, text in tqdm(text_iter, desc="building oracle", unit="doc"):
+        for doc_id, text, source, source_doc_id in tqdm(
+            text_iter, desc="building oracle", unit="doc"
+        ):
             encoded = tokenizer(
                 text,
                 truncation=True,
@@ -206,13 +230,10 @@ def main() -> None:
                     "Regenerate with CUDA, a smaller max_length, or dtype bfloat16/float32."
                 )
             oracle_attentions = select_oracle_attentions(attentions, args.oracle_layer_indices)
-            # Shape: layers, heads, seq, seq. Average selected layers and heads for oracle labels.
             mean_attention = oracle_attentions.mean(dim=(0, 1))
 
             block_ranges = make_block_ranges(seq_len, args.block_size)
-            num_blocks = len(block_ranges)
-            global_hit_mass = torch.zeros(num_blocks)
-            previous_oracle_blocks: list[int] = []
+            previous_middle_blocks: list[int] = []
             previous_hidden = None
 
             for t in range(1, seq_len, args.sample_stride):
@@ -223,25 +244,25 @@ def main() -> None:
 
                 token_attention = mean_attention[t, : t + 1]
                 block_mass = aggregate_block_mass(token_attention, candidate_ranges)
-                global_hit_mass[: block_mass.numel()] += block_mass
-
-                high_hit_count = max(1, int(config.high_hit_top_fraction * num_blocks))
-                high_hit_blocks = set(torch.topk(global_hit_mass, k=high_hit_count).indices.tolist())
-                categories = block_categories(
+                sink, local, middle = fixed_and_middle_blocks(
                     num_blocks=block_mass.numel(),
-                    prompt_blocks=num_blocks,
+                    sink_blocks=config.sink_blocks,
+                    local_window_blocks=config.local_window_blocks,
                     current_block=current_block,
-                    high_hit_blocks=high_hit_blocks,
-                    config=config,
                 )
-
-                budget_label, required_k = oracle_budget_label(
-                    block_mass, config.coverage_threshold, config.budget_buckets
+                fixed = sink | local
+                budget_label, required_k = dynamic_oracle_budget_label(
+                    block_mass=block_mass,
+                    fixed_blocks=fixed,
+                    middle_blocks=middle,
+                    coverage_threshold=config.coverage_threshold,
+                    budget_buckets=config.budget_buckets,
                 )
-                reuse_label = reuse_label_from_previous(
-                    block_mass,
-                    previous_oracle_blocks,
-                    config.reuse_coverage_threshold,
+                reuse_label = reuse_label_from_previous_middle(
+                    block_mass=block_mass,
+                    fixed_blocks=fixed,
+                    previous_middle_blocks=previous_middle_blocks,
+                    reuse_coverage_threshold=config.reuse_coverage_threshold,
                 )
 
                 cheap_scores = cosine_block_scores(hidden, candidate_ranges, t)
@@ -258,6 +279,8 @@ def main() -> None:
 
                 row = {
                     "doc_id": doc_id,
+                    "source": source,
+                    "source_doc_id": source_doc_id,
                     "token_index": t,
                     "hidden_state": hidden[t].tolist(),
                     "query_drift": query_drift,
@@ -266,11 +289,15 @@ def main() -> None:
                     "budget_label": budget_label,
                     "required_k": required_k,
                     "reuse_label": reuse_label,
-                    "category_target": category_target(block_mass, categories).tolist(),
+                    "fixed_sink_blocks": len(sink),
+                    "fixed_local_blocks": len(local - sink),
+                    "eligible_middle_blocks": len(middle),
                 }
                 out.write(json.dumps(row, allow_nan=False) + "\n")
 
-                previous_oracle_blocks = top_blocks(block_mass, required_k)
+                previous_middle_blocks = top_blocks(
+                    block_mass, required_k, candidates=middle
+                )
                 previous_hidden = hidden[t]
             if args.log_every_doc:
                 print({"event": "doc_done", "doc_id": doc_id, "seq_len": seq_len}, flush=True)

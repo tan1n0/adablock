@@ -15,7 +15,12 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from models.adablock_policy import AdaBlockPolicy, AdaBlockPolicyConfig
-from utils.block_oracle import cosine_block_scores, make_block_ranges, score_summary_features
+from utils.block_oracle import (
+    cosine_block_scores,
+    fixed_and_middle_blocks,
+    make_block_ranges,
+    score_summary_features,
+)
 from utils.longbench_eval import (
     LONG_INPUT_SHORT_OUTPUT_TASKS,
     build_model_input_text,
@@ -40,6 +45,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-input-length", type=int, default=8192)
     parser.add_argument("--max-samples", type=int, default=None)
     parser.add_argument("--block-size", type=int, default=16)
+    parser.add_argument("--sink-tokens", type=int, default=32)
+    parser.add_argument("--local-window-blocks", type=int, default=4)
     parser.add_argument("--sample-stride", type=int, default=16)
     parser.add_argument("--budget-tokens", type=int, default=512)
     parser.add_argument("--reuse-threshold", type=float, default=0.5)
@@ -83,6 +90,7 @@ def main() -> None:
         model.to(args.device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
     model.eval()
 
+    sink_blocks = (args.sink_tokens + args.block_size - 1) // args.block_size
     max_blocks = args.budget_tokens // args.block_size
     results: dict[str, dict[str, object]] = {}
     bucket_values = list(policy.config.budget_buckets)
@@ -92,11 +100,11 @@ def main() -> None:
         if args.max_samples is not None:
             rows = list(rows)[: args.max_samples]
         bucket_counter: Counter[int] = Counter()
-        category_sum = torch.zeros(policy.config.num_categories)
         total_steps = 0
         reuse_steps = 0
         unclamped_k_sum = 0.0
         clamped_k_sum = 0.0
+        selected_blocks_sum = 0.0
 
         for row in tqdm(rows, desc=f"policy-stats:{task}", unit="sample"):
             prompt = format_longbench_prompt(task, row)
@@ -146,25 +154,33 @@ def main() -> None:
                     )
                 bucket_idx = int(policy_outputs["budget_prob"].argmax(dim=-1).item())
                 predicted_k = bucket_values[bucket_idx]
-                clamped_k = min(predicted_k, max_blocks)
+                sink, local, middle = fixed_and_middle_blocks(
+                    num_blocks=len(candidate_ranges),
+                    sink_blocks=sink_blocks,
+                    local_window_blocks=args.local_window_blocks,
+                    current_block=current_block,
+                )
+                fixed_count = len(sink | local)
+                dynamic_capacity = max(0, max_blocks - fixed_count)
+                clamped_k = min(predicted_k, dynamic_capacity, len(middle))
                 reuse = float(policy_outputs["reuse_prob"].item()) > args.reuse_threshold
 
                 bucket_counter[predicted_k] += 1
-                category_sum += policy_outputs["category_prob"][0].detach().cpu()
                 total_steps += 1
                 reuse_steps += int(reuse)
                 unclamped_k_sum += predicted_k
                 clamped_k_sum += clamped_k
+                selected_blocks_sum += fixed_count + clamped_k
                 previous_hidden = hidden[t]
 
         results[task] = {
             "num_policy_steps": total_steps,
-            "avg_predicted_blocks": unclamped_k_sum / max(total_steps, 1),
-            "avg_clamped_blocks": clamped_k_sum / max(total_steps, 1),
-            "avg_clamped_tokens": clamped_k_sum * args.block_size / max(total_steps, 1),
+            "avg_predicted_middle_blocks": unclamped_k_sum / max(total_steps, 1),
+            "avg_clamped_middle_blocks": clamped_k_sum / max(total_steps, 1),
+            "avg_selected_blocks": selected_blocks_sum / max(total_steps, 1),
+            "avg_selected_tokens": selected_blocks_sum * args.block_size / max(total_steps, 1),
             "reuse_rate": reuse_steps / max(total_steps, 1),
             "budget_bucket_counts": dict(sorted(bucket_counter.items())),
-            "category_mean": (category_sum / max(total_steps, 1)).tolist(),
         }
         print({"task": task, **results[task]})
 

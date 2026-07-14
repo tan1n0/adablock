@@ -7,17 +7,14 @@ import torch
 import torch.nn.functional as F
 
 
-CATEGORY_NAMES = ("local", "input", "generated", "anchor", "high_hit")
-
-
 @dataclass
 class OracleConfig:
     block_size: int = 16
+    sink_blocks: int = 2
     local_window_blocks: int = 4
     budget_buckets: tuple[int, ...] = (0, 4, 8, 16, 32, 64, 128)
     coverage_threshold: float = 0.9
     reuse_coverage_threshold: float = 0.9
-    high_hit_top_fraction: float = 0.1
 
 
 def make_block_ranges(seq_len: int, block_size: int) -> list[tuple[int, int]]:
@@ -40,69 +37,134 @@ def bucket_index(k: int, buckets: Sequence[int]) -> int:
     return len(buckets) - 1
 
 
-def oracle_budget_label(
+def fixed_and_middle_blocks(
+    num_blocks: int,
+    sink_blocks: int,
+    local_window_blocks: int,
+    current_block: int | None = None,
+) -> tuple[set[int], set[int], set[int]]:
+    """Return fixed sink, fixed local, and eligible middle block ids."""
+    if num_blocks <= 0:
+        return set(), set(), set()
+    current = num_blocks - 1 if current_block is None else min(current_block, num_blocks - 1)
+    sink = set(range(min(max(sink_blocks, 0), num_blocks)))
+    local_start = max(0, current - max(local_window_blocks, 0) + 1)
+    local = set(range(local_start, current + 1))
+    middle = set(range(num_blocks)) - sink - local
+    return sink, local, middle
+
+
+def dynamic_oracle_budget_label(
     block_mass: torch.Tensor,
+    fixed_blocks: Iterable[int],
+    middle_blocks: Iterable[int],
     coverage_threshold: float,
     budget_buckets: Sequence[int],
 ) -> tuple[int, int]:
+    """Minimum number of middle blocks needed after fixed sink/local blocks."""
     total = block_mass.sum().clamp_min(1e-8)
-    sorted_mass = torch.sort(block_mass, descending=True).values
-    cumulative = torch.cumsum(sorted_mass, dim=0) / total
+    fixed = [idx for idx in fixed_blocks if 0 <= idx < block_mass.numel()]
+    fixed_mass = block_mass[fixed].sum() if fixed else block_mass.new_tensor(0.0)
+    if float(fixed_mass / total) >= coverage_threshold:
+        return bucket_index(0, budget_buckets), 0
+
+    middle = [idx for idx in middle_blocks if 0 <= idx < block_mass.numel()]
+    if not middle:
+        return bucket_index(0, budget_buckets), 0
+    sorted_mass = torch.sort(block_mass[middle], descending=True).values
+    cumulative = (fixed_mass + torch.cumsum(sorted_mass, dim=0)) / total
     required_k = int((cumulative < coverage_threshold).sum().item() + 1)
-    required_k = min(required_k, block_mass.numel())
+    required_k = min(required_k, len(middle))
     return bucket_index(required_k, budget_buckets), required_k
 
 
-def reuse_label_from_previous(
+def reuse_label_from_previous_middle(
     block_mass: torch.Tensor,
-    previous_blocks: Iterable[int],
+    fixed_blocks: Iterable[int],
+    previous_middle_blocks: Iterable[int],
     reuse_coverage_threshold: float,
 ) -> int:
-    previous = list(previous_blocks)
+    previous = set(previous_middle_blocks)
     if not previous:
         return 0
-    total = block_mass.sum().clamp_min(1e-8)
-    valid = [idx for idx in previous if 0 <= idx < block_mass.numel()]
+    selected = set(fixed_blocks) | previous
+    valid = [idx for idx in selected if 0 <= idx < block_mass.numel()]
     if not valid:
         return 0
+    total = block_mass.sum().clamp_min(1e-8)
     coverage = block_mass[valid].sum() / total
     return int(float(coverage) >= reuse_coverage_threshold)
 
 
-def top_blocks(block_mass: torch.Tensor, k: int) -> list[int]:
+def top_blocks(
+    block_mass: torch.Tensor,
+    k: int,
+    candidates: Iterable[int] | None = None,
+) -> list[int]:
     if k <= 0:
         return []
-    k = min(k, block_mass.numel())
-    return torch.topk(block_mass, k=k).indices.tolist()
+    if candidates is None:
+        valid = list(range(block_mass.numel()))
+    else:
+        valid = [idx for idx in candidates if 0 <= idx < block_mass.numel()]
+    if not valid:
+        return []
+    take = min(k, len(valid))
+    candidate_tensor = torch.tensor(valid, dtype=torch.long, device=block_mass.device)
+    local_top = torch.topk(block_mass[candidate_tensor], k=take).indices
+    return candidate_tensor[local_top].tolist()
 
 
-def block_categories(
-    num_blocks: int,
-    prompt_blocks: int,
-    current_block: int,
-    high_hit_blocks: set[int],
-    config: OracleConfig,
-) -> torch.Tensor:
-    categories = torch.zeros(num_blocks, dtype=torch.long)
-    for idx in range(num_blocks):
-        if idx >= max(0, current_block - config.local_window_blocks + 1):
-            categories[idx] = 0
-        elif idx < prompt_blocks:
-            categories[idx] = 1
-        else:
-            categories[idx] = 2
-        if idx == 0:
-            categories[idx] = 3
-        if idx in high_hit_blocks and categories[idx] not in {0, 3}:
-            categories[idx] = 4
-    return categories
+def select_middle_blocks(
+    block_scores: torch.Tensor,
+    middle_blocks: Iterable[int],
+    k: int,
+) -> set[int]:
+    return set(top_blocks(block_scores, k, candidates=middle_blocks))
 
 
-def category_target(block_mass: torch.Tensor, categories: torch.Tensor) -> torch.Tensor:
-    target = torch.zeros(len(CATEGORY_NAMES), dtype=block_mass.dtype)
-    for idx in range(len(CATEGORY_NAMES)):
-        target[idx] = block_mass[categories == idx].sum()
-    return target / target.sum().clamp_min(1e-8)
+def compose_block_selection(
+    block_scores: torch.Tensor,
+    dynamic_k: int,
+    sink_blocks: int,
+    local_window_blocks: int,
+    current_block: int | None = None,
+) -> tuple[set[int], set[int], set[int]]:
+    sink, local, middle = fixed_and_middle_blocks(
+        num_blocks=block_scores.numel(),
+        sink_blocks=sink_blocks,
+        local_window_blocks=local_window_blocks,
+        current_block=current_block,
+    )
+    dynamic = select_middle_blocks(block_scores, middle, dynamic_k)
+    return sink | local | dynamic, dynamic, middle
+
+
+def fill_selection_to_total_budget(
+    selected: set[int],
+    scores: torch.Tensor,
+    total_budget_blocks: int,
+    required_blocks: Iterable[int],
+) -> set[int]:
+    required = {idx for idx in required_blocks if 0 <= idx < scores.numel()}
+    target = min(max(total_budget_blocks, len(required)), scores.numel())
+    ordered: list[int] = []
+    seen: set[int] = set()
+    for idx in sorted(required):
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+    for idx in sorted(selected - required, key=lambda item: float(scores[item]), reverse=True):
+        if 0 <= idx < scores.numel() and idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+    for idx in torch.argsort(scores, descending=True).tolist():
+        if idx not in seen:
+            ordered.append(idx)
+            seen.add(idx)
+        if len(ordered) >= target:
+            break
+    return set(ordered[:target])
 
 
 def score_summary_features(block_scores: torch.Tensor) -> torch.Tensor:
@@ -133,7 +195,11 @@ def score_summary_features(block_scores: torch.Tensor) -> torch.Tensor:
     )
 
 
-def cosine_block_scores(hidden_states: torch.Tensor, block_ranges: Sequence[tuple[int, int]], t: int) -> torch.Tensor:
+def cosine_block_scores(
+    hidden_states: torch.Tensor,
+    block_ranges: Sequence[tuple[int, int]],
+    t: int,
+) -> torch.Tensor:
     query = hidden_states[t].float()
     centroids: List[torch.Tensor] = []
     for start, end in block_ranges:
@@ -142,15 +208,17 @@ def cosine_block_scores(hidden_states: torch.Tensor, block_ranges: Sequence[tupl
     return F.cosine_similarity(query.unsqueeze(0), centroid_tensor, dim=-1)
 
 
-def quest_block_scores(hidden_states: torch.Tensor, block_ranges: Sequence[tuple[int, int]], t: int) -> torch.Tensor:
+def quest_block_scores(
+    hidden_states: torch.Tensor,
+    block_ranges: Sequence[tuple[int, int]],
+    t: int,
+) -> torch.Tensor:
     query = hidden_states[t].float()
     scores: List[torch.Tensor] = []
     for start, end in block_ranges:
         block = hidden_states[start:end].float()
         block_min = block.min(dim=0).values
         block_max = block.max(dim=0).values
-        # Quest-style upper-bound proxy: for each dimension, choose the key envelope endpoint
-        # that maximizes the query-key contribution, then sum across dimensions.
         upper = torch.maximum(query * block_min, query * block_max).sum()
         scores.append(upper)
     return torch.stack(scores, dim=0)

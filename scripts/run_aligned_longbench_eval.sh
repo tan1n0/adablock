@@ -24,7 +24,7 @@ set -euo pipefail
 #     bash scripts/run_aligned_longbench_eval.sh
 
 MODEL_NAME="${MODEL_NAME:-Qwen/Qwen2.5-7B-Instruct}"
-POLICY_CHECKPOINT="${POLICY_CHECKPOINT:-checkpoints/adablock_policy_longbench_qa_1024/best.pt}"
+POLICY_CHECKPOINT="${POLICY_CHECKPOINT:-checkpoints/policy_mlp/best.pt}"
 LOCAL_DATA_DIR="${LOCAL_DATA_DIR:-data/longbench}"
 
 PRESET="${PRESET:-quick}"
@@ -55,6 +55,7 @@ MAX_NEW_TOKENS_OVERRIDE="${MAX_NEW_TOKENS_OVERRIDE:-}"
 
 BUDGET_TOKENS="${BUDGET_TOKENS:-512}"
 BLOCK_SIZE="${BLOCK_SIZE:-16}"
+SINK_TOKENS="${SINK_TOKENS:-32}"
 LOCAL_WINDOW_BLOCKS="${LOCAL_WINDOW_BLOCKS:-4}"
 SAMPLE_STRIDE="${SAMPLE_STRIDE:-64}"
 REUSE_THRESHOLD="${REUSE_THRESHOLD:-0.8}"
@@ -130,6 +131,7 @@ run_sparse() {
       --max-input-length "${MAX_INPUT_LENGTH}" \
       "${optional_common_args[@]}" \
       --block-size "${BLOCK_SIZE}" \
+      --sink-tokens "${SINK_TOKENS}" \
       --local-window-blocks "${LOCAL_WINDOW_BLOCKS}" \
       --sample-stride "${SAMPLE_STRIDE}" \
       --budget-tokens "${BUDGET_TOKENS}" \
@@ -150,6 +152,7 @@ run_sparse() {
       --max-input-length "${MAX_INPUT_LENGTH}" \
       "${optional_common_args[@]}" \
       --block-size "${BLOCK_SIZE}" \
+      --sink-tokens "${SINK_TOKENS}" \
       --local-window-blocks "${LOCAL_WINDOW_BLOCKS}" \
       --sample-stride "${SAMPLE_STRIDE}" \
       --budget-tokens "${BUDGET_TOKENS}" \

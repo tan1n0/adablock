@@ -15,12 +15,13 @@ if str(ROOT) not in sys.path:
 
 from models.adablock_policy import AdaBlockPolicy, AdaBlockPolicyConfig
 from utils.block_oracle import (
-    OracleConfig,
-    block_categories,
-    category_target,
     cosine_block_scores,
+    fill_selection_to_total_budget,
+    fixed_and_middle_blocks,
     make_block_ranges,
     score_summary_features,
+    select_middle_blocks,
+    top_blocks,
 )
 from utils.longbench_eval import (
     build_model_input_text,
@@ -44,6 +45,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-input-length", type=int, default=2048)
     parser.add_argument("--max-samples", type=int, default=10)
     parser.add_argument("--block-size", type=int, default=16)
+    parser.add_argument("--sink-tokens", type=int, default=32)
+    parser.add_argument("--local-window-blocks", type=int, default=4)
     parser.add_argument("--sample-stride", type=int, default=16)
     parser.add_argument("--budget-tokens", type=int, default=512)
     parser.add_argument("--reuse-threshold", type=float, default=0.5)
@@ -85,44 +88,6 @@ def topk_coverage(block_mass: torch.Tensor, k: int) -> tuple[float, set[int]]:
     selected = torch.topk(block_mass, k=k).indices.tolist()
     total = block_mass.sum().clamp_min(1e-8)
     return float((block_mass[selected].sum() / total).item()), set(selected)
-
-
-def category_allocate(
-    scores: torch.Tensor,
-    categories: torch.Tensor,
-    category_prob: torch.Tensor,
-    budget: int,
-    max_blocks: int,
-) -> set[int]:
-    if scores.numel() == 0 or budget <= 0:
-        return set()
-    budget = min(budget, max_blocks, scores.numel())
-    raw_alloc = torch.floor(category_prob.cpu() * budget).long()
-    remaining = budget - int(raw_alloc.sum().item())
-    if remaining > 0:
-        order = torch.argsort(category_prob.cpu(), descending=True).tolist()
-        for idx in order[:remaining]:
-            raw_alloc[idx] += 1
-
-    selected: set[int] = set()
-    for category_idx, k in enumerate(raw_alloc.tolist()):
-        if k <= 0:
-            continue
-        candidates = torch.nonzero(categories == category_idx, as_tuple=False).flatten()
-        if candidates.numel() == 0:
-            continue
-        category_scores = scores[candidates]
-        take = min(k, candidates.numel())
-        top_local = torch.topk(category_scores, k=take).indices
-        selected.update(candidates[top_local].tolist())
-
-    if len(selected) < budget:
-        sorted_global = torch.argsort(scores, descending=True).tolist()
-        for idx in sorted_global:
-            selected.add(idx)
-            if len(selected) >= budget:
-                break
-    return selected
 
 
 def coverage_for_selection(block_mass: torch.Tensor, selected: set[int]) -> float:
@@ -203,8 +168,8 @@ def main() -> None:
         model.to(args.device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
     model.eval()
 
+    sink_blocks = (args.sink_tokens + args.block_size - 1) // args.block_size
     max_blocks = args.budget_tokens // args.block_size
-    oracle_config = OracleConfig(block_size=args.block_size)
     bucket_values = list(policy.config.budget_buckets)
     results: dict[str, dict[str, float | int]] = {}
 
@@ -268,10 +233,8 @@ def main() -> None:
 
             mean_attention = attentions.mean(dim=(0, 1))
             block_ranges = make_block_ranges(hidden.shape[0], args.block_size)
-            num_blocks = len(block_ranges)
-            global_hit_mass = torch.zeros(num_blocks)
             previous_hidden = None
-            previous_adablock_selection: set[int] = set()
+            previous_middle_selection: set[int] = set()
 
             for t in range(1, hidden.shape[0], args.sample_stride):
                 current_block = t // args.block_size
@@ -286,11 +249,21 @@ def main() -> None:
                 )
                 total_mass = block_mass.sum().clamp_min(1e-8)
                 block_mass = block_mass / total_mass
-                global_hit_mass[: block_mass.numel()] += block_mass
-
-                fixed_coverage, oracle_topk_indices = topk_coverage(block_mass, max_blocks)
                 scores = cosine_block_scores(hidden, candidate_ranges, t)
-                score_topk_indices = set(torch.topk(scores, k=min(max_blocks, scores.numel())).indices.tolist())
+                sink, local, middle = fixed_and_middle_blocks(
+                    num_blocks=block_mass.numel(),
+                    sink_blocks=sink_blocks,
+                    local_window_blocks=args.local_window_blocks,
+                    current_block=current_block,
+                )
+                fixed_blocks = sink | local
+                dynamic_capacity = max(0, max_blocks - len(fixed_blocks))
+
+                oracle_middle = set(top_blocks(block_mass, dynamic_capacity, candidates=middle))
+                oracle_topk_indices = fixed_blocks | oracle_middle
+                fixed_coverage = coverage_for_selection(block_mass, oracle_topk_indices)
+                score_middle = select_middle_blocks(scores, middle, dynamic_capacity)
+                score_topk_indices = fixed_blocks | score_middle
                 score_topk_coverage = coverage_for_selection(block_mass, score_topk_indices)
                 score_features = score_summary_features(scores).unsqueeze(0)
                 if previous_hidden is None:
@@ -312,44 +285,30 @@ def main() -> None:
                         score_features=score_features.to(policy_device),
                     )
                 bucket_idx = int(policy_outputs["budget_prob"].argmax(dim=-1).item())
-                predicted_k = min(bucket_values[bucket_idx], max_blocks)
-                high_hit_count = max(1, int(0.1 * num_blocks))
-                high_hit_blocks = set(torch.topk(global_hit_mass, k=high_hit_count).indices.tolist())
-                categories = block_categories(
-                    num_blocks=block_mass.numel(),
-                    prompt_blocks=num_blocks,
-                    current_block=current_block,
-                    high_hit_blocks=high_hit_blocks,
-                    config=oracle_config,
+                predicted_middle_k = min(
+                    bucket_values[bucket_idx], dynamic_capacity, len(middle)
                 )
-                current_selection = category_allocate(
-                    scores=scores,
-                    categories=categories,
-                    category_prob=policy_outputs["category_prob"][0].detach().cpu(),
-                    budget=predicted_k,
-                    max_blocks=max_blocks,
-                )
+                current_middle = select_middle_blocks(scores, middle, predicted_middle_k)
+                current_selection = fixed_blocks | current_middle
                 reuse = float(policy_outputs["reuse_prob"].item()) > args.reuse_threshold
-                if reuse and previous_adablock_selection:
-                    reused_selection = set(previous_adablock_selection)
+                reusable_middle = previous_middle_selection & middle
+                if reuse and reusable_middle:
+                    reused_selection = fixed_blocks | reusable_middle
                     reuse_steps += 1
                 else:
                     reused_selection = current_selection
                 if args.fill_budget_with_score:
-                    local_blocks = set(range(max(0, current_block - oracle_config.local_window_blocks + 1), current_block + 1))
-                    filled_selection = fill_selection_with_scores(
-                        current_selection,
-                        scores,
-                        budget=max_blocks,
-                        max_blocks=max_blocks,
-                        required_blocks=local_blocks,
+                    filled_selection = fill_selection_to_total_budget(
+                        selected=current_selection,
+                        scores=scores,
+                        total_budget_blocks=max_blocks,
+                        required_blocks=fixed_blocks,
                     )
-                    reused_filled_selection = fill_selection_with_scores(
-                        reused_selection,
-                        scores,
-                        budget=max_blocks,
-                        max_blocks=max_blocks,
-                        required_blocks=local_blocks,
+                    reused_filled_selection = fill_selection_to_total_budget(
+                        selected=reused_selection,
+                        scores=scores,
+                        total_budget_blocks=max_blocks,
+                        required_blocks=fixed_blocks,
                     )
 
                 fixed_cov_sum += fixed_coverage
@@ -380,7 +339,7 @@ def main() -> None:
                     reuse_filled_jaccard_sum += reuse_filled_overlap["jaccard"]
                 total_steps += 1
                 previous_hidden = hidden[t]
-                previous_adablock_selection = current_selection
+                previous_middle_selection = current_selection - fixed_blocks
 
             del hidden, attentions, mean_attention
             if torch.cuda.is_available():

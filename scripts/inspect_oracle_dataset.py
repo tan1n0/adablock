@@ -35,8 +35,10 @@ def main() -> None:
     budget_counts: Counter[int] = Counter()
     required_k_counts: Counter[int] = Counter()
     reuse_counts: Counter[int] = Counter()
-    source_docs: Counter[int] = Counter()
-    category_sums: list[float] | None = None
+    source_docs: Counter[str] = Counter()
+    sink_blocks_sum = 0
+    local_blocks_sum = 0
+    middle_blocks_sum = 0
     hidden_size: int | None = None
     first_bad: tuple[int, dict[str, Any]] | None = None
 
@@ -57,18 +59,13 @@ def main() -> None:
             budget_counts[int(row["budget_label"])] += 1
             required_k_counts[int(row.get("required_k", -1))] += 1
             reuse_counts[int(row["reuse_label"])] += 1
-            source_docs[int(row.get("doc_id", -1))] += 1
+            source_docs[str(row.get("source_doc_id", row.get("doc_id", -1)))] += 1
             hidden_size = hidden_size or len(row["hidden_state"])
-            category = row["category_target"]
-            if category_sums is None:
-                category_sums = [0.0] * len(category)
-            for idx, value in enumerate(category):
-                category_sums[idx] += float(value)
+            sink_blocks_sum += int(row.get("fixed_sink_blocks", 0))
+            local_blocks_sum += int(row.get("fixed_local_blocks", 0))
+            middle_blocks_sum += int(row.get("eligible_middle_blocks", 0))
 
-    category_mean = None
     valid_rows = total - bad_rows
-    if category_sums is not None and valid_rows > 0:
-        category_mean = [value / valid_rows for value in category_sums]
 
     print(
         {
@@ -81,7 +78,9 @@ def main() -> None:
             "budget_label_counts": dict(sorted(budget_counts.items())),
             "required_k_top20": required_k_counts.most_common(20),
             "reuse_label_counts": dict(sorted(reuse_counts.items())),
-            "category_target_mean": category_mean,
+            "avg_fixed_sink_blocks": sink_blocks_sum / max(valid_rows, 1),
+            "avg_fixed_local_blocks": local_blocks_sum / max(valid_rows, 1),
+            "avg_eligible_middle_blocks": middle_blocks_sum / max(valid_rows, 1),
             "first_bad_line": first_bad[0] if first_bad else None,
         }
     )
