@@ -1,0 +1,38 @@
+{
+  "seed": 20261021,
+  "tasks": [
+    "niah_single_1",
+    "niah_multivalue",
+    "vt"
+  ],
+  "lengths": [
+    8192,
+    16384,
+    32768
+  ],
+  "samples_per_cell": 50,
+  "n": 450,
+  "ratios": [
+    0.1,
+    0.15,
+    0.25,
+    0.4
+  ],
+  "methods": [
+    "full",
+    "S",
+    "A",
+    "B"
+  ],
+  "rho_training": 0.9,
+  "quantile": 0.95,
+  "training": false,
+  "budget_rule": "Per layer/decode step identical total token-slot allowance INCLUDING fixed tokens. Floor to whole 16-token middle blocks. Distribute the same total middle-block quota using capped proportional native q=.95 budget counts (weight floor 1), largest remainder with head-index tie break. No answer-dependent calibration.",
+  "interpretation": "Budget-renormalized S/A/B, not native unconstrained deployment. Equal useful slots per layer at matched sequence position; padding and generation lengths may differ.",
+  "metric": "Official RULER string_match_all answer recall; also report all-required-answers hit rate, not exact match or precision.",
+  "prefill": "Full causal prefill shared across methods, first output token shared; sparse from second output token. Chunked prefill if needed for memory, parity checked.",
+  "length_convention": "Official RULER max_seq_length includes reserved generation tokens; no post-generation input truncation.",
+  "output": "per-task/length quality vs useful and padded slot curves, paired bootstrap CIs and runtime, sample-size and full-score context",
+  "source": "https://github.com/NVIDIA/RULER",
+  "preserve_old_results": true
+}

@@ -16,3 +16,18 @@ checkpoints/
 .cache/
 .huggingface/
 EXPERIMENT_LOG.local.md
+SESSION_SUMMARY.local.md
+
+# Local experiment artifacts and downloaded dependencies
+logs/
+results/
+*.log
+*.jsonl
+*.tar.gz
+*.whl
+*.zip
+*.docx
+experiment_report_20261103_01/
+gpt-visualizer/
+jssa_20261023_01/official/
+jssa_20261023_01/vllm/

@@ -1,0 +1,40 @@
+{
+  "indices": [
+    300,
+    301,
+    302,
+    150,
+    151,
+    152,
+    0,
+    1,
+    2
+  ],
+  "branches": [
+    "S",
+    "B"
+  ],
+  "repetitions": 3,
+  "timing_steps": 16,
+  "audit_steps": 32,
+  "natural_generation_cap": 128,
+  "budget_target": 0.9,
+  "budget_quantile": 0.95,
+  "graph_build_included": true,
+  "graph_cache_per_decode": "one exact shape",
+  "unchanged": "FP32 weights, original summaries, features, budgets, sorting, padded attention, prompts and official scoring",
+  "sources_sha256": {
+    "after_profile_v3.py": "e044dc0b3a156d6e150ac946538b1fb29b696717bbc1a4f3340de90462d5290c",
+    "graph_ranker_v3.py": "d6dd25b029ae3b834a27ca444b1eca26a913769069d9d1ad07f03d03c3e5ee1a",
+    "after_validation.py": "8ff0bc17e1f79ede2de4a7e67321d5b58a11b596bcecb2f6a9282546a15defbd",
+    "profile_ranker.py": "cd48eb5a2b8faa08c0a6a73f87032b07675b40562dd9d98821d57ba9bb360df6",
+    "graph_ranker_v2.py": "51cd8bc23c41245c92b5c3bb857b17f8d9cae8c0a6fe98da700a387a183d759a",
+    "validate_decode_v2.py": "8bbfa13e48c925f5d3a03e76304fe370d4a12a799f8838d334c2343195cc0786",
+    "validate_decode.py": "658985ba28702b75d234c4f24d99339a61464ec8cfba551b303f0025c05e1626",
+    "graph_ranker.py": "347a11f9c93d6111ad8ebd07195f0e620b3628470b48a97ba469f9f3e3cf23fc",
+    "profile_decode_stages.py": "24aedd51173c46bf7258b59d9164ef8b557dc9491a0821c255960602f6631f1a",
+    "common.py": "97ac88e74acb1fc956f67e3788b2b48190ffe54b19423fe078f3e9feee05fd46",
+    "validate_decode_v3.py": "1e23e0cfd38bc7599ac81ea6bde8f9c2bb6383a0f01c6daefbbf66a9a6662b55",
+    "report.py": "9224d12e43e526832dfb1ce6fea524c932f80b5e5d1e014fd029a3615faeb0c7"
+  }
+}
