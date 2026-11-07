@@ -1,0 +1,28 @@
+{
+  "hashes": {
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/best.pt": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/budget/best.pt": "b19dded4a100fd480c7d2852cc7bbc7892f8cd39420d98980d17d3655050d067",
+    "/root/adablock/results/llama_qa_budget_20261015_01/budget/best.pt": "9460c4588ca21ae23717b147baee0c42cfce0078d4f8af629d5433439ca2711a",
+    "/root/adablock/results/llama_qa_budget_20261015_01/budget/calibration.json": "f0c57d781e56e9af8d5a1bc25a28d9293b37fbd209223dbe488ff89810709c6a",
+    "/root/adablock/results/llama_hotpot50_adaptive_20261015_01/selected.json": "1caef851aa52f9a2287de5dada2815ae4f58f3cad754c47d80f132b342eeaf19",
+    "/root/adablock/results/llama_qa_budget_20261015_01/source/runtime.py": "a13c4944e7a0007da9f0d82d91bf6b821853fc37a8548382a44d8411a18c8a4c",
+    "/root/adablock/results/llama_qa_budget_20261015_01/source/run.py": "3f5562fd413b85e23ac14ef14f584bed36163be02f75f6e32d87e5138335d2f8",
+    "/root/adablock/results/llama_budget_diagnosis_20261016_01/diagnose.py": "9ff86514543d24e2e78588ea95c5c2bcf978a6474dcfb26cd2219da046ede938"
+  },
+  "sample": "Original frozen Hotpot50, no selection changes",
+  "primary": "Latest QA budget q=.90 versus fixed112, same ranker; fixed32/64/full/old adaptive retained from original results",
+  "diagnostics": "Every generated step, layer and KV-head; 95% teacher attention mass is a proxy, not an answer-quality guarantee",
+  "interventions": {
+    "cases": [
+      16,
+      121,
+      160,
+      165,
+      181
+    ],
+    "selection": "Union of all F1 disagreements among existing full/fixed32/fixed64/fixed112/old-adaptive/new-adaptive",
+    "repair95": "Increase only deficient per-head budgets to first original budget bucket meeting 95% full mass with frozen ranking, on each intervention state",
+    "floor112": "max(dynamic budget,112), preserving ranked order"
+  },
+  "restrictions": "No training, calibration, new data, or replacement of existing artifacts; oracle repair is diagnostic only"
+}

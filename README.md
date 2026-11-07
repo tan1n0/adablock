@@ -1,5 +1,7 @@
 # AdaBlock 实验指南
 
+最新服务器代码见 [2026-11-07 gpu027 实时同步快照](server_snapshot_20261107_01/README.md)。该快照直接从服务器采集，保留 `/root/adablock*` 目录结构，并附逐文件校验、差异和实际导入路径检查记录。
+
 2026-11-03 代码快照已包含 S/A/B 协同训练、LongBench/RULER 评测、JSSA 适配和 CUDA Graph 执行优化。当前代码位置、实验依赖与运行范围见 [代码快照说明](CODE_SNAPSHOT.md)。下文保留早期 AdaBlock policy 实验指南。
 
 本项目用于训练 AdaBlock 的轻量 block retrieval policy。核心流程是：

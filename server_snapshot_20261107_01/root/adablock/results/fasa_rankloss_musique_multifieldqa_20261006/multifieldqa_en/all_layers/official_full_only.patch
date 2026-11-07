@@ -1,0 +1,37 @@
+--- official
++++ multigpu
+@@ -9,20 +9,11 @@
+ import sys
+ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ 
+-from monkey_patch.snapkv import snapkv_ as snapkv
+-from monkey_patch.streamingllm import streamingllm_ as streamingllm
+-from monkey_patch.oracle.oracle_static import replace_oracle_static
+-
+-
+-from monkey_patch.frequency.dynamic_frequency import replace_llama_df, replace_mistral_df, replace_qwen_df
+-from monkey_patch.frequency.utils import constructe_adaptive_selection
++
++
+ from longbench.eval import scorer
+ 
+ 
+-from monkey_patch.quest.quest_attention import enable_quest_attention_eval
+-from monkey_patch.quest.llama import enable_tuple_kv_cache_for_llama
+-from monkey_patch.quest.mistral import enable_tuple_kv_cache_for_mistral
+-from monkey_patch.quest.qwen import enable_tuple_kv_cache_for_qwen
+ 
+ cache_dir = os.environ.get("FASA_MODEL_DIR", "./models")
+ 
+@@ -236,9 +227,9 @@
+     torch.cuda.manual_seed_all(seed)
+ 
+ def load_model_and_tokenizer(path, model_name):
+-    tokenizer = AutoTokenizer.from_pretrained(path,trust_remote_code=True)
++    tokenizer = AutoTokenizer.from_pretrained(path,trust_remote_code=False,local_files_only=True)
+     tokenizer.pad_token_id = tokenizer.eos_token_id
+-    model = AutoModelForCausalLM.from_pretrained(path, torch_dtype=torch.bfloat16,attn_implementation="flash_attention_2",trust_remote_code=True).to("cuda")
++    model = AutoModelForCausalLM.from_pretrained(path, torch_dtype=torch.bfloat16,attn_implementation="flash_attention_2",trust_remote_code=False,local_files_only=True,device_map={'model.embed_tokens': 0, 'model.layers.0': 1, 'model.layers.1': 1, 'model.layers.2': 1, 'model.layers.3': 1, 'model.layers.4': 1, 'model.layers.5': 1, 'model.layers.6': 1, 'model.layers.7': 1, 'model.layers.8': 2, 'model.layers.9': 2, 'model.layers.10': 2, 'model.layers.11': 2, 'model.layers.12': 2, 'model.layers.13': 2, 'model.layers.14': 2, 'model.layers.15': 2, 'model.layers.16': 2, 'model.layers.17': 2, 'model.layers.18': 3, 'model.layers.19': 3, 'model.layers.20': 3, 'model.layers.21': 3, 'model.layers.22': 3, 'model.layers.23': 3, 'model.layers.24': 3, 'model.layers.25': 3, 'model.layers.26': 3, 'model.layers.27': 3, 'model.norm': 3, 'lm_head': 0},max_memory={0: '20GiB', 1: '12GiB', 2: '12GiB', 3: '12GiB'})
+     model = model.eval()
+     return model, tokenizer
+ full_longeval_datasets = [

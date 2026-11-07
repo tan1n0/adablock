@@ -1,0 +1,11 @@
+--- 
++++ 
+@@ -16,8 +16,6 @@
+ from transformers import AutoTokenizer, LlamaForCausalLM,AutoModelForCausalLM   
+ from argparse import ArgumentParser
+ from longbench.longbench_pred import eval_longbench,full_longeval_datasets,dataset2maxlen
+-from perplexity.evaluate_ppl import evaluate_perplexity_monkey_patch
+-from reasoning.run_math import evaluate_reasoning_df
+ import torch
+ import os
+ import sys

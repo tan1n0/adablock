@@ -1,0 +1,33 @@
+{
+  "train_dir": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/data/rank_train",
+  "val_dir": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/data/validation",
+  "output_dir": "/root/adablock_small_ranker_20261028_01/H64/pretrain",
+  "epochs": 3,
+  "batch_size": 64,
+  "lr": 0.0002,
+  "weight_decay": 0.01,
+  "projection_size": 64,
+  "hidden_size": 64,
+  "identity_size": 8,
+  "block_chunk_size": 256,
+  "no_position": false,
+  "coverage": 0.95,
+  "max_positives": 16,
+  "hard_negatives": 4,
+  "random_negatives": 4,
+  "positive_pairs": 32,
+  "pair_delta": 1e-06,
+  "eval_budgets": [
+    4,
+    8,
+    16,
+    32,
+    64,
+    128
+  ],
+  "max_train_scenes": null,
+  "max_val_scenes": 4096,
+  "seed": 20261015,
+  "device": null,
+  "cpu_threads": 4
+}

@@ -1,0 +1,31 @@
+{
+  "rechecked_files": 1043,
+  "mismatches": [],
+  "imported_modules": {
+    "models.block_ranker": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/models/block_ranker.py",
+      "sha256": "0c895cdfac47aadd07081375f21bc21a559d29d2017f21a81fab65d06140e601"
+    },
+    "utils.ranking_loss": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_loss.py",
+      "sha256": "7852536e86343a541e15b5e866d7f4c5fe35f9f08e05f371a3fdedb8af0d7aa1"
+    },
+    "utils.ranking_batch": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_batch.py",
+      "sha256": "914a375c89ad5ac97616affd93e877ecb7d4cfd9ee16cf1a98cfc6d2a77de4cd"
+    },
+    "budget_pilot": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/budget_pilot.py",
+      "sha256": "4255af460a3976a8690753050ff7764493e555345ebc0f650e2b0ec4d1b92259"
+    },
+    "runtime": {
+      "path": "/root/adablock_sab90_20261019_01/vendor/runtime.py",
+      "sha256": "a13c4944e7a0007da9f0d82d91bf6b821853fc37a8548382a44d8411a18c8a4c"
+    },
+    "run": {
+      "path": "/root/adablock_sab90_20261019_01/vendor/run.py",
+      "sha256": "3f5562fd413b85e23ac14ef14f584bed36163be02f75f6e32d87e5138335d2f8"
+    }
+  },
+  "cuda_initialized": false
+}

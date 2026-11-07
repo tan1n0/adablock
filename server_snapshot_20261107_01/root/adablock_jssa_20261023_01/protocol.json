@@ -1,0 +1,50 @@
+{
+  "n": 450,
+  "tasks": [
+    "niah_single_1",
+    "niah_multivalue",
+    "vt"
+  ],
+  "lengths": [
+    8192,
+    16384,
+    32768
+  ],
+  "methods": [
+    "full",
+    "S",
+    "B",
+    "JSSA_512",
+    "JSSA_1024",
+    "JSSA_2048",
+    "JSSA_4096"
+  ],
+  "official_default_budget": 2048,
+  "budget_unit": "selected tokens per KV head, including all selected sink/local/current tokens",
+  "JSSA_rank": 32,
+  "JSSA_projected_cache": "BF16 official alternative, FP8 default unsupported by old Ampere stack",
+  "JSSA_topk": "official torch.topk fallback; compiled vLLM radix extension unavailable",
+  "backend": "Common HuggingFace BF16 eager model, official JSSA Triton kernels adapted imports only",
+  "native_vllm_reproduced": false,
+  "coverage_target": 0.9,
+  "budget_quantile": 0.95,
+  "SB_policy": "autonomous unmodified; sink/local/padding included",
+  "prompts": "exact previous selected.json input IDs; official RULER prompt+answer prefix and official scoring",
+  "generation": "greedy, model EOS, existing shared 128-token cap; not a claim all official task caps are 128",
+  "prefill": "common full SDPA chunk1024; excluded from decode timing",
+  "timing": "one exclusive worker per GPU; warmup; quality decode timing plus 16 forced steps x3 on 9 smoke prompts",
+  "memory_note": "JSSA scans all rank32 projected keys in addition to selected K/V; bytes recorded separately. CPU prefix staging excluded from decode; index time includes CPU->GPU adaptation and is not native end-to-end.",
+  "protected_sha256": {
+    "/root/adablock_ruler_autonomous_20261022_01/selected.json": "7f60f2a463f0fb5a11fdbbac18951c57263bcb0169460014133fd3a45f2b49f3",
+    "/root/adablock_ruler_autonomous_20261022_01/comparison.json": "51b4fce401f505215f01deabb8335e26bf53010e7d91e3a036b766bd0a25bd85",
+    "/root/adablock_sab90_20261019_01/branches/S/best_pair.pt": "e06a0a591a7801afd7a181007cb612e662bc3969aab5b9b4d08b55f718034620",
+    "/root/adablock_sab90_20261019_01/branches/B/best_pair.pt": "01916c5cb0f17db8d79d8d800fabaff235a70ce5187d95ca772007911384b43f"
+  },
+  "source_sha256": {
+    "evaluate.py": "d71c3c864eb7c995b57899af5dcca8976e900c0135fff144287eef8a51e79899",
+    "kernel_check.py": "04ecc63e359347f7f6a41fa1300a9e79eb18c4ddd61be303d64259b1cacb95a0",
+    "jssa_adapter.py": "dd35edeeb1cc4d45f32ec6441bf00c94f33d0f0b51a37694cb76faaf8496507e",
+    "calibrate.py": "e8f9826fe2cc723099304841fc84a9a9fb9e5a005cd78faa035543187b08a10b",
+    "start.py": "88232eaba202c437b23e0a110fc534af8e5b26d20e77a0183268b494a54004d3"
+  }
+}

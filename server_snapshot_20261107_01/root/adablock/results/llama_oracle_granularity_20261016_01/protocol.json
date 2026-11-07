@@ -1,0 +1,26 @@
+{
+  "hashes": {
+    "/root/adablock/results/llama_hotpot50_adaptive_20261015_01/selected.json": "1caef851aa52f9a2287de5dada2815ae4f58f3cad754c47d80f132b342eeaf19",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/best.pt": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/budget/best.pt": "b19dded4a100fd480c7d2852cc7bbc7892f8cd39420d98980d17d3655050d067",
+    "/root/adablock/results/llama_qa_budget_20261015_01/budget/best.pt": "9460c4588ca21ae23717b147baee0c42cfce0078d4f8af629d5433439ca2711a",
+    "/root/adablock/results/llama_qa_budget_20261015_01/source/run.py": "3f5562fd413b85e23ac14ef14f584bed36163be02f75f6e32d87e5138335d2f8",
+    "/root/adablock/results/llama_qa_budget_20261015_01/source/runtime.py": "a13c4944e7a0007da9f0d82d91bf6b821853fc37a8548382a44d8411a18c8a4c",
+    "/root/adablock/results/llama_oracle_granularity_20261016_01/experiment.py": "50e208ea863deb5b2220be8252a13bf268abca0059ea5ad8652c20b0235f3dce"
+  },
+  "dataset": "Original frozen Hotpot50, all 50 same input token arrays",
+  "model": "Llama-3.1-8B-Instruct BF16",
+  "prefill": "Full attention on complete frozen prompt, shared first token",
+  "decode": "Greedy 32 tokens, original EOS set",
+  "ranker": "Frozen original ranker; stable descending rank order",
+  "teacher": "FP32 full QK softmax per current generated state; mean of 4 Q heads per KV head",
+  "target": 0.95,
+  "tolerance": 1e-07,
+  "arms": {
+    "oracle_exact": "Smallest integer count along frozen ranking satisfying target",
+    "oracle_bucket": "Smallest original bucket >= exact count; [0,4,8,16,32,64,128,256,ALL], clipped to candidate count"
+  },
+  "scope": "Independent end-to-end generation for both arms plus same-state counterfactual costs; no learned budget calls, training, new data, or recalibration",
+  "verification": "Budget boundaries, minimality, coverage, fixed-input hashes, shared full first tokens, teacher-free selection-plan replay on first and last four documents",
+  "costs": "Per-question means and total token slots including fixed sink/local/current tokens; padding is max over 8 KV heads per layer. Oracle wall-clock not a deployable latency estimate."
+}

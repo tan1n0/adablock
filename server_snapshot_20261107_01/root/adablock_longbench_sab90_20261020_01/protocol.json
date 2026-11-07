@@ -1,0 +1,41 @@
+{
+  "status": "prepared_not_launched",
+  "tasks": ["qasper", "multifieldqa_en", "musique"],
+  "samples_per_task": 100,
+  "sampling_seed": 20261020,
+  "sampling": "Uniform without replacement after excluding known rank-training, budget-training and calibration questions; freeze IDs and input hashes before inference. If fewer than 100 eligible examples remain, report the shortage rather than duplicate examples.",
+  "methods": ["full", "S", "A", "B"],
+  "checkpoint_root": "/root/adablock_sab90_20261019_01/branches",
+  "checkpoint_filename": "best_pair.pt",
+  "model": "Same Llama model and tokenizer as the completed S/A/B experiment; verify paths and hashes before launch.",
+  "rho": 0.9,
+  "budget_quantile": 0.95,
+  "training": false,
+  "checkpoint_selection_on_this_evaluation": false,
+  "generation": {
+    "greedy": true,
+    "max_new_tokens": {"qasper": 128, "multifieldqa_en": 64, "musique": 32},
+    "stop_on_eos": true,
+    "prompt": "Reuse repository LongBench task prompts and the same model chat template for every method.",
+    "max_input_tokens": 8192,
+    "truncation": "Same middle truncation for all methods; record original length, evaluated length and truncation indicator. Report as an 8K-limited evaluation, not an untruncated LongBench result.",
+    "prefill": "Full attention shared across methods as in the prior S/A/B implementation; sparse selection starts during decode."
+  },
+  "report_by_task": [
+    "mean answer token F1 using repository scorer",
+    "paired B-minus-A and each sparse-minus-full score differences",
+    "paired bootstrap 95 percent confidence intervals and wins/ties/losses",
+    "logical and padded KV slot fractions",
+    "generation length and fraction reaching generation limit",
+    "prefill, indexing, decode and total time separately",
+    "evaluated input length distribution and truncated example fraction",
+    "length-stratified scores and costs where sample sizes permit"
+  ],
+  "preservation": "Use a new remote output directory; do not overwrite checkpoints or prior results.",
+  "pending": [
+    "Restore SSH connectivity to gpu-027-llm; jump host authentication succeeds but destination closes before SSH key exchange.",
+    "Verify remote dataset availability, exclusion manifests and checkpoint hashes.",
+    "Adapt the existing S/A/B evaluator to task-specific generation limits and scorer.",
+    "Run a short parity and memory preflight before the full evaluation."
+  ]
+}

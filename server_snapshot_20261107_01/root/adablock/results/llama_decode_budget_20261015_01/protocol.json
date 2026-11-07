@@ -1,0 +1,56 @@
+{
+  "seed": 20261015,
+  "documents_per_split": 6,
+  "source_audit": {
+    "rank_train": {
+      "documents": 12,
+      "components": 52,
+      "source_sha256": "19a96d43ba8940d091c678fd8f97c6c785bf04008cc6e837c795e6f9b9eb1473"
+    },
+    "budget_train": {
+      "documents": 6,
+      "components": 22,
+      "source_sha256": "cc88eb1402fbe183dbda60af7abf886e5c57a55d786b9cf84ae4ae9a6c83f8f3"
+    },
+    "validation": {
+      "documents": 6,
+      "components": 26,
+      "source_sha256": "cc15ade45a15f6c7b5264f8a5d917d445626657cd2bb85b48090330d89aceb4e"
+    },
+    "test": {
+      "documents": 6,
+      "components": 27,
+      "source_sha256": "d2bc549535010ef0bc6bf971ffc18a16b71ad584db69f197284dae1ae992f4f1"
+    }
+  },
+  "ranker_sha256": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+  "old_budget_sha256": "b19dded4a100fd480c7d2852cc7bbc7892f8cd39420d98980d17d3655050d067",
+  "old_quantile": 0.95,
+  "trajectories": [
+    "full",
+    "old_adaptive"
+  ],
+  "sample_decode_steps": [
+    0,
+    1,
+    3,
+    7,
+    15,
+    23,
+    30
+  ],
+  "max_new_tokens": 32,
+  "prompt": "Summarize main facts in two or three sentences; non-LongBench source material.",
+  "teacher_precision": "FP32 QK and softmax; mean over GQA query heads",
+  "training": "Same CE classifier, normalization, seed, optimizer, 40 epochs, val-CE checkpoint selection, validation-only quantile grid as original pilot.",
+  "changes": "Generated states and chat summary prompts replace sampled teacher-forced raw-text positions; pooled full and old-adaptive trajectories.",
+  "scope": "Small six-document training pilot; Hotpot50 is a previously inspected regression test, never a training or calibration set.",
+  "preserved": [
+    "original models",
+    "original results",
+    "ranker",
+    "feature definition",
+    "budget classes",
+    "coverage target"
+  ]
+}

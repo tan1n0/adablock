@@ -1,0 +1,25 @@
+{
+  "full_attention_f1": {
+    "budget_train": 17.485119047619047,
+    "validation": 28.333333333333332,
+    "test": 0.0
+  },
+  "original_adaptive_test_f1": 0.0,
+  "new_qa_budget_test_f1": 0.0,
+  "interpretation": "All twelve preselected test questions have zero F1 even with full attention. This subset cannot substantiate answer-quality preservation or superiority.",
+  "original_raw_has_candidates": true,
+  "current_prompt_omits_candidates": true,
+  "limitations": [
+    "Open-ended relation-style questions differ from candidate-based source formatting.",
+    "Aliases and answers outside the reference string can score poorly.",
+    "These observations do not establish the cause of every wrong answer."
+  ],
+  "preservation": "No test resampling, answer normalization changes, or threshold tuning after this finding.",
+  "raw_answer_alignment_verified": 72,
+  "gold_in_source_candidates": 72,
+  "generation_limit_counts": {
+    "full": 1,
+    "old_adaptive": 1,
+    "new_qa_budget": 1
+  }
+}
