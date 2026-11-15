@@ -22,6 +22,7 @@ from models.adablock_policy import (
     AdaBlockPolicyConfig,
     adablock_policy_loss,
 )
+from utils.qk_block_oracle import QK_SCORE_SELECTORS
 
 
 class AdaBlockOracleDataset(Dataset):
@@ -30,28 +31,203 @@ class AdaBlockOracleDataset(Dataset):
         path: str | Path,
         drop_nonfinite: bool = True,
         allow_legacy_oracle: bool = False,
+        transition_corrections_path: str | Path | None = None,
+        allow_nonadjacent_transitions: bool = False,
+        budget_target_selector: str | None = None,
     ) -> None:
         self.path = Path(path)
+        self.transition_corrections_path = (
+            Path(transition_corrections_path) if transition_corrections_path else None
+        )
         self.rows: list[dict[str, Any]] = []
         self.dropped_nonfinite = 0
         self.legacy_rows = 0
-        with self.path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                if not line.strip():
-                    continue
-                row = json.loads(line)
-                if drop_nonfinite and self._has_nonfinite(row):
-                    self.dropped_nonfinite += 1
-                    continue
-                if "eligible_middle_blocks" not in row:
-                    self.legacy_rows += 1
-                self.rows.append(row)
+        self.corrected_rows = 0
+        self.nonadjacent_transition_rows = 0
+        self.budget_target_selector = budget_target_selector
+        self.transition_versions: dict[str, int] = {}
+        correction_handle = (
+            self.transition_corrections_path.open("r", encoding="utf-8")
+            if self.transition_corrections_path
+            else None
+        )
+        correction_iter = self._jsonl_rows(correction_handle) if correction_handle else None
+        try:
+            with self.path.open("r", encoding="utf-8") as handle:
+                for line_no, line in enumerate(handle, start=1):
+                    if not line.strip():
+                        continue
+                    row = json.loads(line)
+                    if correction_iter is not None:
+                        try:
+                            correction = next(correction_iter)
+                        except StopIteration as exc:
+                            raise ValueError(
+                                f"{self.transition_corrections_path} ended before "
+                                f"{self.path}:{line_no}."
+                            ) from exc
+                        self._apply_transition_correction(row, correction, line_no)
+                    if drop_nonfinite and self._has_nonfinite(row):
+                        self.dropped_nonfinite += 1
+                        continue
+                    if "eligible_middle_blocks" not in row:
+                        self.legacy_rows += 1
+                    transition_version = str(
+                        row.get("oracle_transition_version", "legacy_or_unknown")
+                    )
+                    self.transition_versions[transition_version] = (
+                        self.transition_versions.get(transition_version, 0) + 1
+                    )
+                    hidden_transition_valid = (
+                        transition_version == "causal_next_token_v1"
+                        and int(row.get("oracle_transition_gap", -1)) == 1
+                        and row.get("reuse_previous_selector")
+                        == "causal_cosine_topk"
+                        and bool(row.get("oracle_causal_features", False))
+                        and row.get("oracle_policy_input_mode")
+                        == "previous_hidden_only"
+                        and int(row.get("controller_token_index", -1))
+                        == int(row.get("attention_target_token_index", -1)) - 1
+                        and int(row.get("score_query_token_index", -1))
+                        == int(row.get("controller_token_index", -2))
+                        and int(row.get("policy_feature_max_token_index", -1))
+                        == int(row.get("controller_token_index", -2))
+                    )
+                    effective_qk_selector = (
+                        self.budget_target_selector
+                        or str(row.get("oracle_score_selector", ""))
+                    )
+                    effective_qk_target = row.get("budget_targets", {}).get(
+                        effective_qk_selector, {}
+                    )
+                    # Method-specific datasets extracted from a multi-target
+                    # Oracle promote the selected target to top-level fields
+                    # and intentionally remove ``budget_targets``.  Rebuild
+                    # the small validation view here so those datasets retain
+                    # the same causal-transition checks as the multi-target
+                    # representation.
+                    if (
+                        not effective_qk_target
+                        and row.get("oracle_retrieval_space") == "post_rope_qk"
+                        and row.get("oracle_score_selector") == effective_qk_selector
+                    ):
+                        effective_qk_target = {
+                            "score_selector": row.get("oracle_score_selector"),
+                            "budget_label_selector": row.get(
+                                "oracle_budget_label_selector"
+                            ),
+                            "reuse_previous_selector": row.get(
+                                "reuse_previous_selector"
+                            ),
+                        }
+                    qk_transition_valid = (
+                        transition_version == "causal_next_token_v1"
+                        and row.get("oracle_retrieval_space") == "post_rope_qk"
+                        and bool(row.get("oracle_causal_features", False))
+                        and row.get("oracle_policy_input_mode") == "previous_hidden_only"
+                        and int(row.get("controller_token_index", -1))
+                        == int(row.get("attention_target_token_index", -1)) - 1
+                        and int(row.get("policy_feature_max_token_index", -1))
+                        == int(row.get("controller_token_index", -2))
+                        and int(row.get("selector_query_token_index", -1))
+                        == int(row.get("attention_target_token_index", -2))
+                        and effective_qk_target.get("score_selector")
+                        == effective_qk_selector
+                        and effective_qk_target.get("budget_label_selector")
+                        == (
+                            f"post_rope_qk_{effective_qk_selector}"
+                            "_topk_attention_coverage"
+                        )
+                        and effective_qk_target.get("reuse_previous_selector")
+                        == f"causal_{effective_qk_selector}_topk"
+                    )
+                    if not (hidden_transition_valid or qk_transition_valid):
+                        self.nonadjacent_transition_rows += 1
+                    self.rows.append(row)
+            if correction_iter is not None:
+                try:
+                    extra = next(correction_iter)
+                except StopIteration:
+                    pass
+                else:
+                    raise ValueError(
+                        f"{self.transition_corrections_path} has extra row "
+                        f"{self._transition_key(extra)} after {self.path} ended."
+                    )
+        finally:
+            if correction_handle is not None:
+                correction_handle.close()
         if self.legacy_rows and not allow_legacy_oracle:
             raise ValueError(
                 f"{self.path} contains {self.legacy_rows} legacy Oracle rows without "
                 "dynamic-middle metadata. Rebuild it with the current "
                 "build_oracle_dataset.py, or pass --allow-legacy-oracle intentionally."
             )
+        if self.nonadjacent_transition_rows and not allow_nonadjacent_transitions:
+            raise ValueError(
+                f"{self.path} contains {self.nonadjacent_transition_rows} rows without "
+                "causal_next_token_v1 previous-hidden-only features. Rebuild the Oracle with "
+                "--transition-mode causal_next_token, or pass "
+                "--allow-nonadjacent-transitions only for an intentional legacy ablation."
+            )
+
+    @staticmethod
+    def _jsonl_rows(handle):
+        for line in handle:
+            if line.strip():
+                yield json.loads(line)
+
+    @staticmethod
+    def _transition_key(row: dict[str, Any]) -> tuple[str, str, int]:
+        source = str(row.get("source", "unknown"))
+        source_doc_id = str(row.get("source_doc_id", row.get("doc_id", "unknown")))
+        return source, source_doc_id, int(row["token_index"])
+
+    def _apply_transition_correction(
+        self,
+        row: dict[str, Any],
+        correction: dict[str, Any],
+        oracle_line_no: int,
+    ) -> None:
+        oracle_key = self._transition_key(row)
+        correction_key = self._transition_key(correction)
+        if oracle_key != correction_key:
+            raise ValueError(
+                f"Transition correction order/key mismatch at {self.path}:{oracle_line_no}: "
+                f"Oracle={oracle_key}, correction={correction_key}."
+            )
+        if correction.get("oracle_transition_version") != "adjacent_v1":
+            raise ValueError(
+                f"Unsupported transition correction version for {correction_key}: "
+                f"{correction.get('oracle_transition_version')!r}."
+            )
+        if int(correction.get("oracle_transition_gap", -1)) != 1:
+            raise ValueError(f"Correction {correction_key} is not an adjacent-token transition.")
+        if correction.get("reuse_previous_selector") != "cosine_topk":
+            raise ValueError(
+                f"Correction {correction_key} does not use the inference-aligned cosine selector."
+            )
+        required_fields = (
+            "query_drift",
+            "reuse_label",
+            "previous_token_index",
+            "previous_budget_label",
+            "previous_required_k",
+            "previous_budget_bucket_k",
+            "previous_allocated_k",
+            "previous_budget_saturated",
+        )
+        missing = [field for field in required_fields if field not in correction]
+        if missing:
+            raise ValueError(f"Correction {correction_key} lacks fields: {missing}.")
+        for field in required_fields:
+            row[field] = correction[field]
+        row["oracle_transition_version"] = correction["oracle_transition_version"]
+        row["oracle_anchor_stride"] = correction["oracle_anchor_stride"]
+        row["oracle_transition_gap"] = correction["oracle_transition_gap"]
+        row["reuse_previous_selector"] = correction["reuse_previous_selector"]
+        self.corrected_rows += 1
+
     @staticmethod
     def _has_nonfinite(value: Any) -> bool:
         if isinstance(value, float):
@@ -85,13 +261,30 @@ class AdaBlockOracleDataset(Dataset):
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
         row = self.rows[idx]
+        target = row
+        if self.budget_target_selector is not None:
+            targets = row.get("budget_targets", {})
+            if self.budget_target_selector in targets:
+                target = targets[self.budget_target_selector]
+            elif (
+                row.get("oracle_retrieval_space") == "post_rope_qk"
+                and row.get("oracle_score_selector") == self.budget_target_selector
+            ):
+                # Single-method extracted JSONL promotes the selected target
+                # fields to the row itself and removes ``budget_targets``.
+                target = row
+            else:
+                raise KeyError(
+                    f"Row {idx} does not contain Q/K target "
+                    f"{self.budget_target_selector!r}."
+                )
         return {
             "hidden_state": torch.tensor(row["hidden_state"], dtype=torch.float32),
             "query_drift": torch.tensor(row["query_drift"], dtype=torch.float32),
             "score_features": torch.tensor(row["score_features"], dtype=torch.float32),
             "prev_feedback": torch.tensor(row.get("prev_feedback", [0.0] * 8), dtype=torch.float32),
-            "budget_label": torch.tensor(row["budget_label"], dtype=torch.long),
-            "reuse_label": torch.tensor(row["reuse_label"], dtype=torch.float32),
+            "budget_label": torch.tensor(target["budget_label"], dtype=torch.long),
+            "reuse_label": torch.tensor(target["reuse_label"], dtype=torch.float32),
         }
 
 
@@ -99,9 +292,19 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--train-jsonl", required=True)
     parser.add_argument(
+        "--train-transition-corrections",
+        default=None,
+        help="Adjacent-token transition sidecar aligned one-to-one with --train-jsonl.",
+    )
+    parser.add_argument(
         "--val-jsonl",
         default=None,
         help="Independent document-level validation Oracle. Recommended.",
+    )
+    parser.add_argument(
+        "--val-transition-corrections",
+        default=None,
+        help="Adjacent-token transition sidecar aligned one-to-one with --val-jsonl.",
     )
     parser.add_argument("--output-dir", default="checkpoints/adablock_policy")
     parser.add_argument("--architecture", choices=POLICY_ARCHITECTURES, default="mlp")
@@ -129,6 +332,17 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lambda-cost", type=float, default=0.01)
     parser.add_argument("--keep-nonfinite", action="store_true")
     parser.add_argument("--allow-legacy-oracle", action="store_true")
+    parser.add_argument(
+        "--budget-target-selector",
+        choices=list(QK_SCORE_SELECTORS),
+        default=None,
+        help="Train on one selector target from a post-RoPE Q/K multi-target Oracle.",
+    )
+    parser.add_argument(
+        "--allow-nonadjacent-transitions",
+        action="store_true",
+        help="Allow legacy previous-anchor transitions for an intentional ablation.",
+    )
     parser.add_argument(
         "--metrics-jsonl",
         default=None,
@@ -250,6 +464,8 @@ def evaluate(
 
 def main() -> None:
     args = parse_args()
+    if args.val_transition_corrections and not args.val_jsonl:
+        raise ValueError("--val-transition-corrections requires --val-jsonl.")
     torch.manual_seed(args.seed)
     random.seed(args.seed)
     device = torch.device(args.device)
@@ -258,6 +474,9 @@ def main() -> None:
         args.train_jsonl,
         drop_nonfinite=not args.keep_nonfinite,
         allow_legacy_oracle=args.allow_legacy_oracle,
+        transition_corrections_path=args.train_transition_corrections,
+        allow_nonadjacent_transitions=args.allow_nonadjacent_transitions,
+        budget_target_selector=args.budget_target_selector,
     )
     if len(train_dataset_full) == 0:
         raise ValueError("Training dataset is empty.")
@@ -269,6 +488,9 @@ def main() -> None:
             args.val_jsonl,
             drop_nonfinite=not args.keep_nonfinite,
             allow_legacy_oracle=args.allow_legacy_oracle,
+            transition_corrections_path=args.val_transition_corrections,
+            allow_nonadjacent_transitions=args.allow_nonadjacent_transitions,
+            budget_target_selector=args.budget_target_selector,
         )
         overlap = train_dataset_full.document_keys & val_dataset_full.document_keys
         if overlap:
@@ -310,6 +532,7 @@ def main() -> None:
         architecture=args.architecture,
         num_layers=args.num_layers,
         num_attention_heads=args.num_attention_heads,
+        policy_input_mode="previous_hidden_only",
     )
     model = AdaBlockPolicy(config).to(device)
     optimizer = torch.optim.AdamW(
@@ -334,8 +557,19 @@ def main() -> None:
             "validation_documents": (
                 len(val_dataset_full.document_keys) if args.val_jsonl else None
             ),
+            "train_transition_corrections": args.train_transition_corrections,
+            "train_corrected_rows": train_dataset_full.corrected_rows,
+            "train_transition_versions": train_dataset_full.transition_versions,
+            "validation_transition_corrections": args.val_transition_corrections,
+            "validation_corrected_rows": (
+                val_dataset_full.corrected_rows if args.val_jsonl else 0
+            ),
+            "validation_transition_versions": (
+                val_dataset_full.transition_versions if args.val_jsonl else {}
+            ),
             "lr": args.lr,
             "budget_buckets": config.budget_buckets,
+            "policy_input_mode": config.policy_input_mode,
             "metrics_jsonl": str(metrics_path),
         }
     )

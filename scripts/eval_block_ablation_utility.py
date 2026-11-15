@@ -34,7 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--split", default="test")
     parser.add_argument("--local-data-dir", default=None)
     parser.add_argument("--longbench-cache-dir", default=None)
-    parser.add_argument("--output-jsonl", default="results/block_ablation_utility.jsonl")
+    parser.add_argument("--output-jsonl", default="results/summaries/block_ablation_utility.jsonl")
     parser.add_argument("--max-input-length", type=int, default=2048)
     parser.add_argument("--max-samples", type=int, default=5)
     parser.add_argument("--max-steps-per-sample", type=int, default=4)

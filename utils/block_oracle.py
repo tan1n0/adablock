@@ -60,12 +60,17 @@ def dynamic_oracle_budget_label(
     middle_blocks: Iterable[int],
     coverage_threshold: float,
     budget_buckets: Sequence[int],
+    always_retained_mass: float | torch.Tensor = 0.0,
 ) -> tuple[int, int]:
     """Minimum number of middle blocks needed after fixed sink/local blocks."""
-    total = block_mass.sum().clamp_min(1e-8)
+    coverage_floor = coverage_threshold - 1e-7
+    always_mass = block_mass.new_tensor(always_retained_mass)
+    total = (block_mass.sum() + always_mass).clamp_min(1e-8)
     fixed = [idx for idx in fixed_blocks if 0 <= idx < block_mass.numel()]
-    fixed_mass = block_mass[fixed].sum() if fixed else block_mass.new_tensor(0.0)
-    if float(fixed_mass / total) >= coverage_threshold:
+    fixed_mass = always_mass + (
+        block_mass[fixed].sum() if fixed else block_mass.new_tensor(0.0)
+    )
+    if float(fixed_mass / total) >= coverage_floor:
         return bucket_index(0, budget_buckets), 0
 
     middle = [idx for idx in middle_blocks if 0 <= idx < block_mass.numel()]
@@ -73,8 +78,52 @@ def dynamic_oracle_budget_label(
         return bucket_index(0, budget_buckets), 0
     sorted_mass = torch.sort(block_mass[middle], descending=True).values
     cumulative = (fixed_mass + torch.cumsum(sorted_mass, dim=0)) / total
-    required_k = int((cumulative < coverage_threshold).sum().item() + 1)
+    required_k = int((cumulative < coverage_floor).sum().item() + 1)
     required_k = min(required_k, len(middle))
+    return bucket_index(required_k, budget_buckets), required_k
+
+
+def selector_oracle_budget_label(
+    block_mass: torch.Tensor,
+    block_scores: torch.Tensor,
+    fixed_blocks: Iterable[int],
+    middle_blocks: Iterable[int],
+    coverage_threshold: float,
+    budget_buckets: Sequence[int],
+    always_retained_mass: float | torch.Tensor = 0.0,
+) -> tuple[int, int]:
+    """Budget label when blocks are selected by a score-based selector.
+
+    Blocks are ranked by ``block_scores`` (for example Quest), while the
+    achieved coverage is measured with the full-attention ``block_mass``.
+    This separates the selection policy from the ground-truth coverage metric.
+    """
+    coverage_floor = coverage_threshold - 1e-7
+    always_mass = block_mass.new_tensor(always_retained_mass)
+    total = (block_mass.sum() + always_mass).clamp_min(1e-8)
+    fixed = [idx for idx in fixed_blocks if 0 <= idx < block_mass.numel()]
+    fixed_mass = always_mass + (
+        block_mass[fixed].sum() if fixed else block_mass.new_tensor(0.0)
+    )
+    if float(fixed_mass / total) >= coverage_floor:
+        return bucket_index(0, budget_buckets), 0
+
+    middle = [
+        idx
+        for idx in middle_blocks
+        if 0 <= idx < block_mass.numel() and idx < block_scores.numel()
+    ]
+    if not middle:
+        return bucket_index(0, budget_buckets), 0
+    score_tensor = block_scores.detach().float()
+    ordered = sorted(middle, key=lambda idx: float(score_tensor[idx]), reverse=True)
+    cumulative = fixed_mass
+    required_k = len(ordered)
+    for rank, block_id in enumerate(ordered, start=1):
+        cumulative = cumulative + block_mass[block_id]
+        if float(cumulative / total) >= coverage_floor:
+            required_k = rank
+            break
     return bucket_index(required_k, budget_buckets), required_k
 
 
@@ -83,6 +132,7 @@ def reuse_label_from_previous_middle(
     fixed_blocks: Iterable[int],
     previous_middle_blocks: Iterable[int],
     reuse_coverage_threshold: float,
+    always_retained_mass: float | torch.Tensor = 0.0,
 ) -> int:
     previous = set(previous_middle_blocks)
     if not previous:
@@ -91,8 +141,9 @@ def reuse_label_from_previous_middle(
     valid = [idx for idx in selected if 0 <= idx < block_mass.numel()]
     if not valid:
         return 0
-    total = block_mass.sum().clamp_min(1e-8)
-    coverage = block_mass[valid].sum() / total
+    always_mass = block_mass.new_tensor(always_retained_mass)
+    total = (block_mass.sum() + always_mass).clamp_min(1e-8)
+    coverage = (block_mass[valid].sum() + always_mass) / total
     return int(float(coverage) >= reuse_coverage_threshold)
 
 
@@ -221,4 +272,29 @@ def quest_block_scores(
         block_max = block.max(dim=0).values
         upper = torch.maximum(query * block_min, query * block_max).sum()
         scores.append(upper)
+    return torch.stack(scores, dim=0)
+
+
+def arkvale_block_scores(
+    hidden_states: torch.Tensor,
+    block_ranges: Sequence[tuple[int, int]],
+    t: int,
+) -> torch.Tensor:
+    """ArkVale page-digest upper-bound scores.
+
+    ArkVale's strongest reported variant is the cuboid-mean digest. It uses
+    the AABB center and element-wise mean radius, producing a tighter cuboid
+    than the raw min/max (rmax) bound used by Quest here.
+    """
+    query = hidden_states[t].float()
+    scores: List[torch.Tensor] = []
+    for start, end in block_ranges:
+        block = hidden_states[start:end].float()
+        block_min = block.min(dim=0).values
+        block_max = block.max(dim=0).values
+        center = 0.5 * (block_min + block_max)
+        radius_mean = (block - center).abs().mean(dim=0)
+        bound_max = center + radius_mean
+        bound_min = center - radius_mean
+        scores.append(torch.maximum(query * bound_max, query * bound_min).sum())
     return torch.stack(scores, dim=0)

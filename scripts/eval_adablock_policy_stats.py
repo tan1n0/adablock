@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-name", default="Qwen/Qwen2.5-7B-Instruct")
     parser.add_argument("--tasks", nargs="+", default=list(LONG_INPUT_SHORT_OUTPUT_TASKS))
     parser.add_argument("--split", default="test")
-    parser.add_argument("--output-json", default="results/adablock_policy_stats.json")
+    parser.add_argument("--output-json", default="results/summaries/adablock_policy_stats.json")
     parser.add_argument("--local-data-dir", default=None)
     parser.add_argument("--longbench-cache-dir", default=None)
     parser.add_argument("--max-input-length", type=int, default=8192)

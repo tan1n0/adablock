@@ -1,0 +1,2 @@
+# Keep frozen experiment source bytes, including CRLF line endings.
+experiments/code/** -text whitespace=cr-at-eol

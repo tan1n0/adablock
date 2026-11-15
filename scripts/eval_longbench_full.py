@@ -32,9 +32,14 @@ from utils.longbench_eval import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run full-attention LongBench baseline.")
     parser.add_argument("--model-name", default="Qwen/Qwen2.5-7B-Instruct")
+    parser.add_argument(
+        "--local-files-only",
+        action="store_true",
+        help="Load tokenizer/model only from the local Hugging Face cache; never query the Hub.",
+    )
     parser.add_argument("--tasks", nargs="+", default=list(LONG_INPUT_SHORT_OUTPUT_TASKS))
     parser.add_argument("--split", default="test")
-    parser.add_argument("--output-dir", default="results/longbench_full")
+    parser.add_argument("--output-dir", default="results/longbench/longbench_full")
     parser.add_argument("--local-data-dir", default=None)
     parser.add_argument("--longbench-cache-dir", default=None)
     parser.add_argument("--max-input-length", type=int, default=8192)
@@ -63,11 +68,16 @@ def load_rows(args: argparse.Namespace, task: str):
 
 def main() -> None:
     args = parse_args()
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name, use_fast=True)
+    tokenizer = AutoTokenizer.from_pretrained(
+        args.model_name,
+        use_fast=True,
+        local_files_only=args.local_files_only,
+    )
     model = AutoModelForCausalLM.from_pretrained(
         args.model_name,
         torch_dtype=load_dtype(args.dtype),
         device_map=normalize_device_map(args.device_map),
+        local_files_only=args.local_files_only,
     )
     if getattr(model, "hf_device_map", None) is None:
         model.to(args.device or ("cuda:0" if torch.cuda.is_available() else "cpu"))
@@ -104,6 +114,11 @@ def main() -> None:
                         temperature=args.temperature if args.temperature > 0 else None,
                         top_p=args.top_p,
                         pad_token_id=tokenizer.eos_token_id,
+                        eos_token_id=tokenizer.eos_token_id,
+                        # Qwen's repository generation_config sets 1.05.  The
+                        # sparse decoders use raw logits, so override it for a
+                        # path-aligned greedy/sampling comparison.
+                        repetition_penalty=1.0,
                     )
                 prediction = tokenizer.decode(
                     generated[0, input_ids.shape[-1] :],

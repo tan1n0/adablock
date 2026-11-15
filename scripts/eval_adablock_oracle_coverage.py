@@ -41,7 +41,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--tasks", nargs="+", default=["hotpotqa", "musique"])
     parser.add_argument("--local-data-dir", default=None)
     parser.add_argument("--split", default="test")
-    parser.add_argument("--output-json", default="results/adablock_oracle_coverage.json")
+    parser.add_argument("--output-json", default="results/summaries/adablock_oracle_coverage.json")
     parser.add_argument("--max-input-length", type=int, default=2048)
     parser.add_argument("--max-samples", type=int, default=10)
     parser.add_argument("--block-size", type=int, default=16)

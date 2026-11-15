@@ -16,3 +16,24 @@ checkpoints/
 .cache/
 .huggingface/
 EXPERIMENT_LOG.local.md
+
+# Relocated experiment runs and result archives.
+/experiments/runs/
+/experiments/archives/
+
+# Temporary inventories and scratch files.
+/tmp/
+
+# Generated experiment outputs.
+/results/
+
+# Local environments, logs, and frozen diagnostic output.
+/.venvs/
+/logs/
+/diagnostics/
+
+# Local build and test caches.
+/.pytest_cache/
+*.egg-info/
+/build/
+/dist/

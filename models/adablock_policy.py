@@ -23,12 +23,21 @@ class AdaBlockPolicyConfig:
     architecture: str = "mlp"
     num_layers: int = 2
     num_attention_heads: int = 4
+    policy_input_mode: str = "legacy_unspecified"
 
     @property
     def policy_input_size(self) -> int:
         return self.projection_size + 1 + self.score_feature_size + self.feedback_size
 
     def validate(self) -> None:
+        if self.policy_input_mode not in {
+            "legacy_unspecified",
+            "previous_hidden_only",
+        }:
+            raise ValueError(
+                "policy_input_mode must be 'previous_hidden_only' or "
+                "'legacy_unspecified'."
+            )
         if self.architecture not in POLICY_ARCHITECTURES:
             raise ValueError(
                 f"Unsupported architecture={self.architecture!r}; choose from {POLICY_ARCHITECTURES}."
