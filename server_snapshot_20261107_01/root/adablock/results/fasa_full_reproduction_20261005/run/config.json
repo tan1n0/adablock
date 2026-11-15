@@ -1,0 +1,19 @@
+{
+  "mode": "base",
+  "official_commit": "96c00c46db12ccee56104175470aa29579d66c58",
+  "model_revision": "a09a35458c702b33eeacc393d103063234e8bc28",
+  "model_path": "/root/.cache/huggingface/hub/models--Qwen--Qwen2.5-7B-Instruct/snapshots/a09a35458c702b33eeacc393d103063234e8bc28",
+  "dataset_sha256": "a0005ab2a1bc2ac3a70352dccbf96cccc4e0aac6bb677f6a55180fa51b92ef6f",
+  "samples": 200,
+  "backend": "flash_attention_2",
+  "dtype": "bfloat16",
+  "max_input": 127500,
+  "max_new_tokens": 32,
+  "seed": 42,
+  "threads": 4,
+  "torch": "2.5.1+cu121",
+  "transformers": "4.43.0",
+  "flash_attn": "2.7.4.post1",
+  "script_sha256": "769c3f553abeecf7b1ade3db8c6d2bf4dcbc674af6aadf493d89aa424c01d40f",
+  "patch_sha256": "72bf1c8344f7a2fd5a645f36417c1ddf23ad581e5250f70926822459cc4c5cfe"
+}

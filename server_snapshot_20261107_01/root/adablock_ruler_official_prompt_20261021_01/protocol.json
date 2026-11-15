@@ -1,0 +1,69 @@
+{
+  "source": "/root/adablock_ruler_budget_20261021_01",
+  "source_selected_sha256": "c03bf499c985b06d3454bbd9913f55596bec481f15d7ed828cf3fcf936fb7927",
+  "code_sha256": {
+    "evaluate.py": "56fbfc86a924b30d9fdf87f649fa03d879dd87f2ecc10fc30cf8ebd67713dab1",
+    "controller.py": "a81740e046b5ca7fe557deddb3d5e2814a4965c10aef04bfa1afb4e60c99b920",
+    "driver.py": "265b0e38dc92e1d9ed5a2bffbfd9ba65314e2dcf007f8f96bee00cc8f297441a",
+    "cache_buffer.py": "9f12f3618f380a95330a857919e47617f4151848fe40e7939afd867aa3d768c6"
+  },
+  "questions": 450,
+  "pilot_questions": 9,
+  "pilot_responses": 117,
+  "pilot_selection": "First original sample in each task/length cell; no score-based selection",
+  "initial_max_new_by_task": {
+    "niah_single_1": 128,
+    "niah_multivalue": 128,
+    "vt": 30
+  },
+  "escalation": [
+    30,
+    128,
+    512,
+    1024
+  ],
+  "ratios": [
+    0.1,
+    0.15,
+    0.25,
+    0.4
+  ],
+  "lengths": [
+    8192,
+    16384,
+    32768
+  ],
+  "tasks": [
+    "niah_single_1",
+    "niah_multivalue",
+    "vt"
+  ],
+  "prompt_fix": "Exactly official input + answer_prefix; round-trip tokenization verified for all 450 inputs",
+  "unchanged": [
+    "context",
+    "question",
+    "answers",
+    "checkpoints",
+    "budget rule",
+    "greedy decoding",
+    "scoring"
+  ],
+  "cache_reserve": "max(256, max generation allowance + 32), identical for all methods",
+  "input_length_stats": {
+    "8192": [
+      7471,
+      8152
+    ],
+    "16384": [
+      15665,
+      16354
+    ],
+    "32768": [
+      32021,
+      32724
+    ]
+  },
+  "input_length_note": "Original context preserved with official answer prefix restored. Actual input length recorded; increased generation allowance may exceed original nominal total-length bin.",
+  "pilot_in_final": true,
+  "gate": "117 nonempty responses reach EOS without truncation; Full reaches expected answer format in every cell. No score threshold."
+}

@@ -1,0 +1,94 @@
+{
+  "seed": 20261019,
+  "rho": [
+    0.9,
+    0.95
+  ],
+  "frozen_ranker": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/best.pt",
+  "ranker_sha256": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+  "budget_data": {
+    "/root/adablock/results/llama_qa_budget_20261015_01/budget_data/budget_train.pt": "00d52e8ff7f93f5b2ebb198ce3b126f3249fceec44ce04dfd4c9c786e54c02bd",
+    "/root/adablock/results/llama_qa_budget_20261015_01/budget_data/validation.pt": "f48eddc58f44d23550aea74a98e6f7927422ec889b61cbb92766fb1b9aabd744"
+  },
+  "initial_budget": "identical seeded random state; same original BudgetClassifier",
+  "objective": "original unweighted CE; no new cost penalties",
+  "epochs": 40,
+  "batch_size": 512,
+  "lr": 0.001,
+  "weight_decay": 0.01,
+  "gradient_clip": 1.0,
+  "model_selection": "minimum existing held-out WikiHop calibration CE; no QA answer selection",
+  "normalization": "shared budget-train features mean/std; std floor .001; input clip [-8,8]",
+  "deployment_quantile": 0.95,
+  "calibration": "fixed equal q=.95 for both branches; no quantile scan",
+  "qa": {
+    "dataset": "official HotpotQA TRAIN distractor",
+    "n": 32,
+    "selection": "seeded random source order; 2048..8160 tokens; no truncation; frozen before training",
+    "exclusions": {
+      "outside_2k_8k": 882,
+      "prior_context_overlap": 27,
+      "within_qa_context_overlap": 1
+    },
+    "old_questions_excluded": true,
+    "context_overlap_filter": ">=3 sampled 13-word matches to budget/pilot corpus, LongBench, or chosen QA",
+    "files": {
+      "/root/adablock/data/hotpot_official/train-00000-of-00002.parquet": "76d3bb3048a7cc73c1958107c0c5872a00d7e7d00c105b81e92f6769e7822e68",
+      "/root/adablock/data/hotpot_official/train-00001-of-00002.parquet": "713661628434fbb19fff7392e2e321e4ed107e3c7c7784d0690946e5f722763f"
+    },
+    "prompt_tokens": [
+      2084,
+      2342,
+      2291,
+      2168,
+      2376,
+      2099,
+      2213,
+      2076,
+      2067,
+      2105,
+      2125,
+      2057,
+      2387,
+      2495,
+      2100,
+      2275,
+      2126,
+      2207,
+      2545,
+      2408,
+      2089,
+      3052,
+      2199,
+      2121,
+      2220,
+      2595,
+      2428,
+      2234,
+      2597,
+      2063,
+      2093,
+      2192
+    ],
+    "types": {
+      "bridge": 30,
+      "comparison": 2
+    },
+    "role": "new development QA validation; never used to select checkpoint or thresholds"
+  },
+  "model": "/root/autodl-tmp/models/Meta-Llama-3.1-8B-Instruct-359efdbb",
+  "dtype": "BF16",
+  "max_new_tokens": 32,
+  "decoding": "greedy; original EOS set",
+  "shared_prefill": true,
+  "attention": "full SDPA prefill; original sparse selected attention from second output token",
+  "block_size": 16,
+  "sink_tokens": 32,
+  "local_blocks": 32,
+  "practical_quality_tolerance_f1": 1.0,
+  "decision": "report paired F1 delta/CI and both costs; no threshold changes after viewing QA",
+  "limitations": [
+    "32-question pilot; no noninferiority claim without sufficient paired precision",
+    "token slots are proxies, not measured GPU memory traffic"
+  ]
+}

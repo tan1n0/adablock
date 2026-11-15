@@ -1,0 +1,32 @@
+{
+  "indices": [
+    300,
+    301,
+    302,
+    150,
+    151,
+    152,
+    0,
+    1,
+    2
+  ],
+  "branches": [
+    "S",
+    "B"
+  ],
+  "repetitions": 3,
+  "timing_steps": 16,
+  "audit_steps": 32,
+  "natural_generation_cap": 128,
+  "budget_target": 0.9,
+  "budget_quantile": 0.95,
+  "graph_build_included": true,
+  "graph_cache_per_decode": "one exact shape",
+  "unchanged": "FP32 weights, original summaries, features, budgets, sorting, padded attention, prompts and official scoring",
+  "sources_sha256": {
+    "profile_ranker.py": "cd48eb5a2b8faa08c0a6a73f87032b07675b40562dd9d98821d57ba9bb360df6",
+    "validate_decode.py": "658985ba28702b75d234c4f24d99339a61464ec8cfba551b303f0025c05e1626",
+    "graph_ranker.py": "347a11f9c93d6111ad8ebd07195f0e620b3628470b48a97ba469f9f3e3cf23fc",
+    "common.py": "97ac88e74acb1fc956f67e3788b2b48190ffe54b19423fe078f3e9feee05fd46"
+  }
+}

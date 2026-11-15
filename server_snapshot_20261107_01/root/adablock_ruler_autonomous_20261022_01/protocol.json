@@ -1,0 +1,33 @@
+{
+  "n": 450,
+  "tasks": [
+    "niah_single_1",
+    "niah_multivalue",
+    "vt"
+  ],
+  "lengths": [
+    8192,
+    16384,
+    32768
+  ],
+  "coverage_target": 0.9,
+  "quantile": 0.95,
+  "policy": "raw predicted per-head counts, no total quota redistribution",
+  "summary": "FP32 Gram, no SVD guard",
+  "same_inputs_and_caps": true,
+  "protected_sha256": {
+    "/root/adablock_ruler_official_prompt_20261021_01/evaluation/selected.json": "7f60f2a463f0fb5a11fdbbac18951c57263bcb0169460014133fd3a45f2b49f3",
+    "/root/adablock_ruler_official_prompt_20261021_01/evaluation/comparison.json": "77477d95b1fc6d03a003db47ab59b1939150419e2cc4790bbb0069327a116a10",
+    "/root/adablock_sab90_20261019_01/branches/S/best_pair.pt": "e06a0a591a7801afd7a181007cb612e662bc3969aab5b9b4d08b55f718034620",
+    "/root/adablock_sab90_20261019_01/branches/A/best_pair.pt": "8096f805abcfe53448c848299ff02e9f31dd6a7aa07a4d8c341cecd5c125f9d7",
+    "/root/adablock_sab90_20261019_01/branches/B/best_pair.pt": "01916c5cb0f17db8d79d8d800fabaff235a70ce5187d95ca772007911384b43f"
+  },
+  "source_sha256": {
+    "baseline_controller.py": "24b2f99c84248882c04cb653aadb45ed9abe11a72d8c2674307eeaecb3e7ab9d",
+    "run_autonomous.py": "e00a1626f64b0ae8a5ba6e4701867e9c7d7fea4936b3138a883bb11f596633b0",
+    "gpu_controller.py": "a6642f08015294852fe3924b878e789b2942c4570f2b7873180b88cc9b5d4a5e",
+    "fast_digest.py": "a34636170a75fd22b9bea5306e20e92b1df942c529c816e67106f53bd2891c93",
+    "experiment.py": "18ebaeb04ae43707933e7088dc142980199f0d6261061c4260239a723b1de6eb",
+    "cache_buffer.py": "9f12f3618f380a95330a857919e47617f4151848fe40e7939afd867aa3d768c6"
+  }
+}

@@ -1,0 +1,37 @@
+{
+  "versions": [
+    "baseline",
+    "gpu",
+    "gpu_digest"
+  ],
+  "ratios": [
+    0.1,
+    0.25
+  ],
+  "coverage_target": 0.9,
+  "budget_quantile": 0.95,
+  "frozen_checkpoints": true,
+  "official_prompts_and_caps_unchanged": true,
+  "n_prompts": 9,
+  "note": "Paired implementation regression on existing 9 official smoke prompts, not a statistical S/A/B superiority test. One host width scalar and existing SDPA mask branch remain. Capture disabled for all timed quality runs.",
+  "protected_sha256": {
+    "/root/adablock_ruler_harder_20261022_01/status.json": "23ee086c235dbe8519e91fa0b4d31921c919637f43a16b11e2828b7c5add1b49",
+    "/root/adablock_ruler_harder_20261022_01/controller.py": "a81740e046b5ca7fe557deddb3d5e2814a4965c10aef04bfa1afb4e60c99b920",
+    "/root/adablock_ruler_harder_20261022_01/evaluate.py": "63b2a0b4d764ce4b127a12d27b34331039fe870300f4aa591970b58487d498f7",
+    "/root/adablock_ruler_harder_20261022_01/smoke_report.json": "59921fc685367e6cf9fcd16f3740cf041089b05bc2ae7a0ceedad45921b016d4",
+    "/root/adablock_ruler_harder_20261022_01/smoke/selected.json": "fb05bcb87f12423ff4e92cfaabbaa9dbdb7cbc0c0f12763c54dd5906bcbee645",
+    "/root/adablock_sab90_20261019_01/vendor/runtime.py": "a13c4944e7a0007da9f0d82d91bf6b821853fc37a8548382a44d8411a18c8a4c",
+    "/root/adablock_sab90_20261019_01/vendor/run.py": "3f5562fd413b85e23ac14ef14f584bed36163be02f75f6e32d87e5138335d2f8",
+    "/root/adablock_sab90_20261019_01/branches/S/best_pair.pt": "e06a0a591a7801afd7a181007cb612e662bc3969aab5b9b4d08b55f718034620",
+    "/root/adablock_sab90_20261019_01/branches/A/best_pair.pt": "8096f805abcfe53448c848299ff02e9f31dd6a7aa07a4d8c341cecd5c125f9d7",
+    "/root/adablock_sab90_20261019_01/branches/B/best_pair.pt": "01916c5cb0f17db8d79d8d800fabaff235a70ce5187d95ca772007911384b43f"
+  },
+  "sources_sha256": {
+    "baseline_controller.py": "a81740e046b5ca7fe557deddb3d5e2814a4965c10aef04bfa1afb4e60c99b920",
+    "gpu_controller.py": "c1bc5f359adbf798f12b0085fee0a3334b4b49e74c4f4f56de8c3d65ea19cad1",
+    "fast_digest.py": "a34636170a75fd22b9bea5306e20e92b1df942c529c816e67106f53bd2891c93",
+    "experiment.py": "18ebaeb04ae43707933e7088dc142980199f0d6261061c4260239a723b1de6eb",
+    "check_ops.py": "792f7d06b276afeaa96c8e68d3f9365439b764b32eec6b3fc80489e581a17d26",
+    "cache_buffer.py": "9f12f3618f380a95330a857919e47617f4151848fe40e7939afd867aa3d768c6"
+  }
+}

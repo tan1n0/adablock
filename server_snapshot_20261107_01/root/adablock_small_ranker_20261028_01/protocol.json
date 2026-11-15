@@ -1,0 +1,60 @@
+{
+  "architectures": {
+    "original": {
+      "projection": 64,
+      "hidden": 128,
+      "input": 213
+    },
+    "H64": {
+      "projection": 64,
+      "hidden": 64,
+      "input": 213
+    },
+    "P32H64": {
+      "projection": 32,
+      "hidden": 64,
+      "input": 117
+    }
+  },
+  "branches": [
+    "S",
+    "B"
+  ],
+  "hardware": "two RTX3090 24GB, one process per GPU",
+  "training": "Same original 3-epoch pilot pretraining, then original S/B schedule and seeds. Fresh small rankers, no weight slicing or test-QA distillation.",
+  "pretraining_coverage": 0.95,
+  "adaptation_and_budget_coverage": 0.9,
+  "deployment_quantile": 0.95,
+  "budget_initialization": "Same original rho90 checkpoint and frozen normalizer for all; labels/features refreshed for each new ranker, same 40 epochs and final-stage validation CE checkpoint selection.",
+  "qa": "Same frozen 450 RULER inputs as original autonomous evaluation, no truncation/prompt changes, max_new128 and same EOS/scorer.",
+  "fixed_qa": "90 stratified questions, 10 per task/length; same questions for all six rankers; fixed32 and fixed128 middle blocks per KV head plus identical sink/local/current.",
+  "autonomous_qa": "Full and all six rankers on 450 questions; each ranker uses its own trained budget model.",
+  "timing": "9 task/length smoke prompts, equal fixed128 middle blocks, 16 forced decode steps, 3 rotating repeats. Also natural-output timings on all QA.",
+  "unchanged": "FP32 rankers, original fast Gram summaries, mean_proj cache disabled, original padded attention, same budget features and quantile policy.",
+  "validation": "Architecture/absolute budget checks, longest Full/all-read check, original Full/S/B output regression; training and QA split preserved.",
+  "keepalive": "Idle GPU pulse watchdog; explicit pause marker throughout measured evaluation, then resumed.",
+  "protected_sha256": {
+    "/root/adablock_ruler_autonomous_20261022_01/selected.json": "7f60f2a463f0fb5a11fdbbac18951c57263bcb0169460014133fd3a45f2b49f3",
+    "/root/adablock_ruler_autonomous_20261022_01/comparison.json": "51b4fce401f505215f01deabb8335e26bf53010e7d91e3a036b766bd0a25bd85",
+    "/root/adablock_ruler_autonomous_20261022_01/gpu_controller.py": "a6642f08015294852fe3924b878e789b2942c4570f2b7873180b88cc9b5d4a5e",
+    "/root/adablock_ruler_autonomous_20261022_01/baseline_controller.py": "24b2f99c84248882c04cb653aadb45ed9abe11a72d8c2674307eeaecb3e7ab9d",
+    "/root/adablock_sab90_20261019_01/core.py": "66392a409b415d031af1490739bf0ee28f0622f9839df2aa04045f1e4d40016f",
+    "/root/adablock_sab90_20261019_01/train.py": "131836ce4d91763ffa0d036d34b37bb3f12031c1606a467d7925362cf4208f45",
+    "/root/adablock_sab90_20261019_01/qa_selected.json": "52dd011e10834895cbfd15a08f1e471254a86dc7ebea205ec6474ba0c8fbc326",
+    "/root/adablock_sab90_20261019_01/raw_data_hashes.json": "814ef0a7f5e85a9c9492385f02798c5f246975264fc16b90a14e8f58052a5ee3",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/best.pt": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/run_config.json": "7fd2f6851803edcf3d2310d34f6e4a976a70ea60c0138bcbcbe730ed7c331510",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/scripts/train_block_ranker_batched.py": "9d7fd516ccdd37062b463b5dcd7edcd7aeb7fe474445451357dfe7a7a9d6c7ff",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/models/block_ranker.py": "0c895cdfac47aadd07081375f21bc21a559d29d2017f21a81fab65d06140e601",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_batch.py": "914a375c89ad5ac97616affd93e877ecb7d4cfd9ee16cf1a98cfc6d2a77de4cd",
+    "/root/adablock_sab90_20261019_01/branches/S/best_pair.pt": "e06a0a591a7801afd7a181007cb612e662bc3969aab5b9b4d08b55f718034620",
+    "/root/adablock_sab90_20261019_01/branches/B/best_pair.pt": "01916c5cb0f17db8d79d8d800fabaff235a70ce5187d95ca772007911384b43f"
+  },
+  "source_sha256": {
+    "keepalive.py": "c908b2a4ea1ed83ade2314b6a79b86fa798b026b5bf393a862ec88fb45642f6f",
+    "evaluate_small.py": "4c4085235f89ba8470932f8e23c5bf2c9ea0cd484fd239b32de22a2fdb7c84c3",
+    "pipeline.py": "2ad175e839c04f2187961398f08e1dcd156d1bab8520933f4ada2af676a73d6a",
+    "train_small.py": "392ef8960572f13b4f680b046ae4c0a0a7a9498197b6cfc408aaf6147e432c1b"
+  },
+  "report_revision": "Chinese final report expanded before evaluation starts; model and evaluation settings unchanged."
+}

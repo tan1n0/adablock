@@ -1,0 +1,17 @@
+{
+  "base_run": "/root/adablock/results/llama_hotpot50_adaptive_20261015_01",
+  "fixed_method": "fixed112",
+  "data": "Same frozen 50 HotpotQA questions and input token IDs; 29 untruncated and 21 truncated.",
+  "teacher_trajectories": [
+    "full",
+    "adaptive"
+  ],
+  "teacher_precision": "FP32 QK products and softmax, averaged over GQA query heads",
+  "coverage_target": 0.95,
+  "budget_quantile": 0.95,
+  "labels_usage": "TEST DIAGNOSTICS ONLY: forbidden for training, calibration, or hyperparameter selection",
+  "parity": "Every generated token on both instrumented trajectories must equal the frozen base run; assertion per question.",
+  "fixed112_timing": "Uninstrumented frozen runtime, separately from teacher collection",
+  "model_loading": "One model per GPU; questions sharded across four GPUs; no model parallelism",
+  "baseline_source_identical": true
+}

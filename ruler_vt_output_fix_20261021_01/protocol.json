@@ -1,0 +1,40 @@
+{
+  "source": "/root/adablock_ruler_budget_20261021_01",
+  "source_selected_sha256": "c03bf499c985b06d3454bbd9913f55596bec481f15d7ed828cf3fcf936fb7927",
+  "code_sha256": {
+    "evaluate.py": "1337387c48fc7d275eeb04642f882d5ab4cbdf9e76d7edece16ae85257950528",
+    "controller.py": "a81740e046b5ca7fe557deddb3d5e2814a4965c10aef04bfa1afb4e60c99b920",
+    "driver.py": "4ed9dc50f0463ba69e85fdcea1cf499c90479707cf48ded5fb8b47ecde1b272c",
+    "cache_buffer.py": "9f12f3618f380a95330a857919e47617f4151848fe40e7939afd867aa3d768c6"
+  },
+  "questions": 150,
+  "pilot_questions": 3,
+  "pilot_selection": "First original VT sample at each length; no score-based selection",
+  "candidate_limits": [
+    512,
+    1024
+  ],
+  "ratios": [
+    0.1,
+    0.15,
+    0.25,
+    0.4
+  ],
+  "lengths": [
+    8192,
+    16384,
+    32768
+  ],
+  "unchanged": [
+    "input_ids",
+    "prompt",
+    "checkpoints",
+    "budget rule",
+    "greedy decoding",
+    "scoring"
+  ],
+  "cache_reserve": "max_new + 32, identical for all methods",
+  "input_length_note": "Original input tokens preserved; increased generation allowance can exceed original nominal total-length bin.",
+  "pilot_in_final": true,
+  "gate": "All 39 responses reach EOS without truncation and contain a five-letter variable-like token; correctness is not a gate."
+}

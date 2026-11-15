@@ -1,0 +1,96 @@
+{
+  "host": "autodl-container-54c14dadfc-d9cafdc0",
+  "files": {
+    "block_ranker.py": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/models/block_ranker.py",
+      "sha256": "0c895cdfac47aadd07081375f21bc21a559d29d2017f21a81fab65d06140e601",
+      "actual_import_path_checked": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/models/block_ranker.py"
+    },
+    "ranking_loss.py": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_loss.py",
+      "sha256": "7852536e86343a541e15b5e866d7f4c5fe35f9f08e05f371a3fdedb8af0d7aa1",
+      "actual_import_path_checked": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_loss.py"
+    },
+    "ranking_batch.py": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_batch.py",
+      "sha256": "914a375c89ad5ac97616affd93e877ecb7d4cfd9ee16cf1a98cfc6d2a77de4cd",
+      "actual_import_path_checked": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_batch.py"
+    },
+    "qk_block_oracle.py": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/qk_block_oracle.py",
+      "sha256": "43b68446aed1b02db28411bb4758ca53eaccbaeac8897422feffd305eb6ba151"
+    },
+    "ranking_data.py": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_data.py",
+      "sha256": "abf05e488d843c5679eb1fed2d3b0c5f3dda537dd57d66f2647d35ff991bebdd"
+    },
+    "block_oracle.py": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/block_oracle.py",
+      "sha256": "6dda569953a8ad3b79cd3963a36140d8305f0cc675bd6a8d069ed5f40925e201"
+    },
+    "train_block_ranker_batched.py": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/scripts/train_block_ranker_batched.py",
+      "sha256": "9d7fd516ccdd37062b463b5dcd7edcd7aeb7fe474445451357dfe7a7a9d6c7ff"
+    },
+    "ranker_run_config.json": {
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/run_config.json",
+      "sha256": "7fd2f6851803edcf3d2310d34f6e4a976a70ea60c0138bcbcbe730ed7c331510"
+    },
+    "budget_pilot.py": {
+      "path": "/root/adablock_sab90_20261019_01/vendor/budget_pilot.py",
+      "sha256": "4255af460a3976a8690753050ff7764493e555345ebc0f650e2b0ec4d1b92259",
+      "actual_import_path_checked": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/budget_pilot.py"
+    },
+    "runtime.py": {
+      "path": "/root/adablock_sab90_20261019_01/vendor/runtime.py",
+      "sha256": "a13c4944e7a0007da9f0d82d91bf6b821853fc37a8548382a44d8411a18c8a4c",
+      "actual_import_path_checked": "/root/adablock_sab90_20261019_01/vendor/runtime.py"
+    },
+    "run.py": {
+      "path": "/root/adablock_sab90_20261019_01/vendor/run.py",
+      "sha256": "3f5562fd413b85e23ac14ef14f584bed36163be02f75f6e32d87e5138335d2f8",
+      "actual_import_path_checked": "/root/adablock_sab90_20261019_01/vendor/run.py"
+    },
+    "teacher_collect.py": {
+      "path": "/root/adablock_sab90_20261019_01/collect.py",
+      "sha256": "60b95e30ebc961a5ec4254a993fec65e2d4ab1956fba11f42743952406c2a73d"
+    },
+    "sab_core.py": {
+      "path": "/root/adablock_sab90_20261019_01/core.py",
+      "sha256": "66392a409b415d031af1490739bf0ee28f0622f9839df2aa04045f1e4d40016f"
+    },
+    "sab_train.py": {
+      "path": "/root/adablock_sab90_20261019_01/train.py",
+      "sha256": "131836ce4d91763ffa0d036d34b37bb3f12031c1606a467d7925362cf4208f45"
+    },
+    "gpu_controller.py": {
+      "path": "/root/adablock_ruler_autonomous_20261022_01/gpu_controller.py",
+      "sha256": "a6642f08015294852fe3924b878e789b2942c4570f2b7873180b88cc9b5d4a5e"
+    },
+    "baseline_controller.py": {
+      "path": "/root/adablock_ruler_autonomous_20261022_01/baseline_controller.py",
+      "sha256": "24b2f99c84248882c04cb653aadb45ed9abe11a72d8c2674307eeaecb3e7ab9d"
+    },
+    "fast_digest.py": {
+      "path": "/root/adablock_ruler_autonomous_20261022_01/fast_digest.py",
+      "sha256": "a34636170a75fd22b9bea5306e20e92b1df942c529c816e67106f53bd2891c93"
+    },
+    "run_autonomous.py": {
+      "path": "/root/adablock_ruler_autonomous_20261022_01/run_autonomous.py",
+      "sha256": "e00a1626f64b0ae8a5ba6e4701867e9c7d7fea4936b3138a883bb11f596633b0"
+    },
+    "experiment.py": {
+      "path": "/root/adablock_ruler_autonomous_20261022_01/experiment.py",
+      "sha256": "18ebaeb04ae43707933e7088dc142980199f0d6261061c4260239a723b1de6eb"
+    },
+    "cache_buffer.py": {
+      "path": "/root/adablock_ruler_autonomous_20261022_01/cache_buffer.py",
+      "sha256": "9f12f3618f380a95330a857919e47617f4151848fe40e7939afd867aa3d768c6"
+    },
+    "graph_ranker_v3.py": {
+      "path": "/root/adablock_ranker_execution_20261028_01/graph_ranker_v3.py",
+      "sha256": "d6dd25b029ae3b834a27ca444b1eca26a913769069d9d1ad07f03d03c3e5ee1a"
+    }
+  },
+  "import_validation": "Imported core on gpu027 using CPU only; all six module hashes match these archived bytes."
+}

@@ -1,0 +1,35 @@
+{
+  "train_dir": "/root/adablock/results/ranker_audit_20261003_v1/batch_optimization/ddp_resume_verification/train",
+  "val_dir": "/root/adablock/results/ranker_audit_20261003_v1/batch_optimization/ddp_resume_verification/validation",
+  "output_dir": "/root/adablock/results/ranker_audit_20261003_v1/batch_optimization/ddp_resume_verification/resumed",
+  "resume": "/root/adablock/results/ranker_audit_20261003_v1/batch_optimization/ddp_resume_verification/interrupted/resume_latest.pt",
+  "trace_indices": true,
+  "epochs": 2,
+  "local_batch": 2,
+  "lr": 0.0002,
+  "weight_decay": 0.01,
+  "coverage": 0.95,
+  "seed": 42,
+  "cpu_threads": 1,
+  "checkpoint_every_scenes": 16,
+  "log_every_batches": 2,
+  "max_run_scenes": null,
+  "initialization": "DDP_checkpoint_resume",
+  "resume_path": "/root/adablock/results/ranker_audit_20261003_v1/batch_optimization/ddp_resume_verification/interrupted/resume_latest.pt",
+  "initial_model_sha256": "93836704036e7ab5022de2c01d55aec60b1504ad951938243cdfa6e53cbe26ef",
+  "world_size": 4,
+  "global_batch": 8,
+  "pair_rng_seeds": [
+    43,
+    44,
+    45,
+    46
+  ],
+  "loss_normalization": "SUM of scene-normalized losses / GLOBAL effective scene count",
+  "data_order": "Original shard-shuffle generator, seed42 by default; global stream sliced without padding/repeats.",
+  "manifest_hashes": {
+    "train": "84d1c02d1c7880425fc6f58786cfc694d016293551ce1bbf8b76cab405d82149",
+    "validation": "0b3993a05e6b7b987411a38f249a3cd97d32afe867f11fc763f27eca072a76d4"
+  },
+  "scheduler": null
+}

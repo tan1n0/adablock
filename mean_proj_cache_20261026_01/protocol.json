@@ -1,0 +1,33 @@
+{
+  "change": "Cache only frozen mean_proj outputs; original features, sorting and budget policy unchanged",
+  "tasks": [
+    "niah_multivalue",
+    "niah_single_1",
+    "vt"
+  ],
+  "lengths": [
+    8192,
+    16384,
+    32768
+  ],
+  "branches": [
+    "S",
+    "B"
+  ],
+  "fixed_decode_steps": 32,
+  "repetitions": 3,
+  "cache_dtype": "float32",
+  "reserve_blocks": 9,
+  "timing": "alternating paired order, one worker per otherwise idle GPU; cache build reported separately",
+  "validation": "32-step full selection/budget traces, incremental cache updates, natural full answers; no validation overhead in timed runs",
+  "protected_sha256": {
+    "/root/adablock_ruler_autonomous_20261022_01/gpu_controller.py": "a6642f08015294852fe3924b878e789b2942c4570f2b7873180b88cc9b5d4a5e",
+    "/root/adablock_ruler_autonomous_20261022_01/fast_digest.py": "a34636170a75fd22b9bea5306e20e92b1df942c529c816e67106f53bd2891c93",
+    "/root/adablock_ruler_autonomous_20261022_01/comparison.json": "51b4fce401f505215f01deabb8335e26bf53010e7d91e3a036b766bd0a25bd85",
+    "/root/adablock_ruler_autonomous_20261022_01/selected.json": "7f60f2a463f0fb5a11fdbbac18951c57263bcb0169460014133fd3a45f2b49f3",
+    "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_batch.py": "914a375c89ad5ac97616affd93e877ecb7d4cfd9ee16cf1a98cfc6d2a77de4cd",
+    "/root/adablock_sab90_20261019_01/branches/S/best_pair.pt": "e06a0a591a7801afd7a181007cb612e662bc3969aab5b9b4d08b55f718034620",
+    "/root/adablock_sab90_20261019_01/branches/B/best_pair.pt": "01916c5cb0f17db8d79d8d800fabaff235a70ce5187d95ca772007911384b43f"
+  },
+  "source_sha256": "79c5b0c434e8ce961e4490cb4dccc9d2eccf99fdab91ef5c1cb05c3c0c53a8b7"
+}

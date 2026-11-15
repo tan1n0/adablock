@@ -37,3 +37,16 @@ EXPERIMENT_LOG.local.md
 *.egg-info/
 /build/
 /dist/
+
+# Legacy server snapshot artifacts and downloaded dependencies.
+SESSION_SUMMARY.local.md
+*.log
+*.jsonl
+*.tar.gz
+*.whl
+*.zip
+*.docx
+/experiment_report_20261103_01/
+/gpt-visualizer/
+/jssa_20261023_01/official/
+/jssa_20261023_01/vllm/

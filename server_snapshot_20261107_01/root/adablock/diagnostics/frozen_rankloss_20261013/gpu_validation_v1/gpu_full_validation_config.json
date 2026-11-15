@@ -1,0 +1,7 @@
+{
+  "repo_root": "/root/adablock",
+  "checkpoint": "/root/adablock/checkpoints/ranker_all28_curve_20261005/best.pt",
+  "training_config": "/root/adablock/results/ranker_all28_curve_20261005/run_config.json",
+  "freeze_receipt": "recovered/freeze_receipt.json",
+  "data": "/root/adablock/data/ranker_cobs_validation_all28_20261004"
+}

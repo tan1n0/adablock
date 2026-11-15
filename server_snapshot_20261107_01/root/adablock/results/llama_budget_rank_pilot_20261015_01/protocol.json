@@ -1,0 +1,1504 @@
+{
+  "seed": 20261015,
+  "model": "/root/autodl-tmp/models/Meta-Llama-3.1-8B-Instruct-359efdbb",
+  "torch": "2.5.1+cu121",
+  "transformers": "4.55.4",
+  "split_documents": {
+    "rank_train": 12,
+    "budget_train": 6,
+    "validation": 6,
+    "test": 6
+  },
+  "selection": {
+    "rank_train": [
+      {
+        "doc_id": "train-pack-4096-eb6598552a64a749d23c",
+        "source": "token_pack_4096",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4096,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "multi_needle::98df1377dcd9d6349d66",
+          "wikihop::d72609534a9156305f6e"
+        ],
+        "components": [
+          {
+            "source": "wikihop",
+            "doc_id": "d72609534a9156305f6e",
+            "start_token": 771,
+            "end_token": 4009
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "98df1377dcd9d6349d66",
+            "start_token": 0,
+            "end_token": 850
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 3989
+      },
+      {
+        "doc_id": "train-pack-4096-f96b84aed89a99bfaeef",
+        "source": "token_pack_4096",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4096,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "arxiv::47d3c470c50f3d650ab5",
+          "arxiv::7ec09412ab9ce4609433"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "7ec09412ab9ce4609433",
+            "start_token": 3954,
+            "end_token": 5297
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "47d3c470c50f3d650ab5",
+            "start_token": 0,
+            "end_token": 2745
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 3760
+      },
+      {
+        "doc_id": "train-pack-4096-809dd94bc8d2a49a9219",
+        "source": "token_pack_4096",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4095,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "arxiv::0ca4aded1e09c851916b",
+          "pg19::aa7a719f10e54bd83673"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "0ca4aded1e09c851916b",
+            "start_token": 342,
+            "end_token": 4094
+          },
+          {
+            "source": "pg19",
+            "doc_id": "aa7a719f10e54bd83673",
+            "start_token": 0,
+            "end_token": 336
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 4023
+      },
+      {
+        "doc_id": "train-pack-4096-631b85faf48815554d2f",
+        "source": "token_pack_4096",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4096,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "pubmed::bde3b34e03d9dd34854a",
+          "wikihop::1bfc2203dbfbea46d67e",
+          "wikihop::ab636c6d38d1f8a9a4bc",
+          "wikihop::f5c940cbd9957479f516"
+        ],
+        "components": [
+          {
+            "source": "wikihop",
+            "doc_id": "ab636c6d38d1f8a9a4bc",
+            "start_token": 949,
+            "end_token": 952
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "f5c940cbd9957479f516",
+            "start_token": 0,
+            "end_token": 722
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "1bfc2203dbfbea46d67e",
+            "start_token": 0,
+            "end_token": 503
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "bde3b34e03d9dd34854a",
+            "start_token": 0,
+            "end_token": 2844
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 4006
+      },
+      {
+        "doc_id": "train-pack-8192-c84145ffcf466e7855fa",
+        "source": "token_pack_8192",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8191,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "arxiv::e4b3a0eb5753b94e73b9",
+          "booksum::07fc1a5e0c742644b127"
+        ],
+        "components": [
+          {
+            "source": "booksum",
+            "doc_id": "07fc1a5e0c742644b127",
+            "start_token": 864,
+            "end_token": 4916
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "e4b3a0eb5753b94e73b9",
+            "start_token": 0,
+            "end_token": 4132
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 7973
+      },
+      {
+        "doc_id": "train-pack-8192-77648ec24cb72bc54e02",
+        "source": "token_pack_8192",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8192,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "arxiv::de5598ec5759df737b6c",
+          "booksum::e54d736dd44197f94a21",
+          "multi_needle::6ce2686fc72b26b4b6d1",
+          "multi_needle::b7462c7279aae7d3bfc9",
+          "multi_needle::cc8e9dbc89caffa3bbc0"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "de5598ec5759df737b6c",
+            "start_token": 232,
+            "end_token": 1276
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "b7462c7279aae7d3bfc9",
+            "start_token": 0,
+            "end_token": 951
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "cc8e9dbc89caffa3bbc0",
+            "start_token": 0,
+            "end_token": 1957
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "6ce2686fc72b26b4b6d1",
+            "start_token": 0,
+            "end_token": 996
+          },
+          {
+            "source": "booksum",
+            "doc_id": "e54d736dd44197f94a21",
+            "start_token": 0,
+            "end_token": 3212
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 8102
+      },
+      {
+        "doc_id": "train-pack-8192-c8ae559d1a24ecbce7cf",
+        "source": "token_pack_8192",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8191,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "booksum::41cf5fe255e2440054aa",
+          "multi_needle::25ec53aedb416dd96471",
+          "multi_needle::365e4dc0640fd76ba9a3",
+          "pg19::1b55653929fe1181ff57",
+          "wikihop::47fbca3d9a1c97d8a1a0",
+          "wikihop::5f6f2080b5621dfa9ac4"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "25ec53aedb416dd96471",
+            "start_token": 792,
+            "end_token": 3124
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "5f6f2080b5621dfa9ac4",
+            "start_token": 0,
+            "end_token": 324
+          },
+          {
+            "source": "pg19",
+            "doc_id": "1b55653929fe1181ff57",
+            "start_token": 0,
+            "end_token": 1538
+          },
+          {
+            "source": "booksum",
+            "doc_id": "41cf5fe255e2440054aa",
+            "start_token": 0,
+            "end_token": 2760
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "365e4dc0640fd76ba9a3",
+            "start_token": 0,
+            "end_token": 944
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "47fbca3d9a1c97d8a1a0",
+            "start_token": 0,
+            "end_token": 254
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 8160
+      },
+      {
+        "doc_id": "train-pack-8192-c10baad63e6b65bb8825",
+        "source": "token_pack_8192",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8192,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "booksum::19d2eef86cc0e36961a3",
+          "pg19::e32c181589530fc67e48"
+        ],
+        "components": [
+          {
+            "source": "booksum",
+            "doc_id": "19d2eef86cc0e36961a3",
+            "start_token": 1218,
+            "end_token": 6089
+          },
+          {
+            "source": "pg19",
+            "doc_id": "e32c181589530fc67e48",
+            "start_token": 0,
+            "end_token": 3313
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 8187
+      },
+      {
+        "doc_id": "train-pack-16384-194a1ab39bd4a84114cb",
+        "source": "token_pack_16384",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16380,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::34c1c8c8623aff1d5142",
+          "multi_needle::14abdc032a263f5ce461",
+          "multi_needle::7cc5cea951591ba64041",
+          "pg19::dfc0388073125e97a3a6",
+          "pubmed::1c0fc0a4e411f308ece8",
+          "pubmed::3aaf159cb6cffec580e0",
+          "wikihop::90ecd7783d27e6edaae4",
+          "wikihop::96a9e0929546007a68a6"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "7cc5cea951591ba64041",
+            "start_token": 1164,
+            "end_token": 1916
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "96a9e0929546007a68a6",
+            "start_token": 0,
+            "end_token": 1195
+          },
+          {
+            "source": "pg19",
+            "doc_id": "dfc0388073125e97a3a6",
+            "start_token": 0,
+            "end_token": 7427
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "34c1c8c8623aff1d5142",
+            "start_token": 0,
+            "end_token": 1924
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "3aaf159cb6cffec580e0",
+            "start_token": 0,
+            "end_token": 1212
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "90ecd7783d27e6edaae4",
+            "start_token": 0,
+            "end_token": 576
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "1c0fc0a4e411f308ece8",
+            "start_token": 0,
+            "end_token": 576
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "14abdc032a263f5ce461",
+            "start_token": 0,
+            "end_token": 2666
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 16207
+      },
+      {
+        "doc_id": "train-pack-16384-ef649cafca69370b052d",
+        "source": "token_pack_16384",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16381,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::549891472726cd8a09fc",
+          "arxiv::97bac161046b1deb17e3",
+          "arxiv::d09a6671a0da0b3972fe",
+          "booksum::b324de7a828c23dd2f45"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "97bac161046b1deb17e3",
+            "start_token": 696,
+            "end_token": 5866
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "549891472726cd8a09fc",
+            "start_token": 0,
+            "end_token": 5236
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "d09a6671a0da0b3972fe",
+            "start_token": 0,
+            "end_token": 4889
+          },
+          {
+            "source": "booksum",
+            "doc_id": "b324de7a828c23dd2f45",
+            "start_token": 0,
+            "end_token": 1065
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 15668
+      },
+      {
+        "doc_id": "train-pack-16384-f968fa09af7cf0c351eb",
+        "source": "token_pack_16384",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16382,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::99bb605835924725dfa2",
+          "booksum::8b4e9aa1badb18cc11b6",
+          "multi_needle::a87aeaed201620aa0458",
+          "multi_needle::e56b14e9d6cb2ec47672",
+          "pubmed::a46fbe5495f049a4e04f",
+          "wikihop::93241ed0fa3ab507c0e0",
+          "wikihop::d108c7fe21e1620a8366"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "99bb605835924725dfa2",
+            "start_token": 307,
+            "end_token": 5477
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "a87aeaed201620aa0458",
+            "start_token": 0,
+            "end_token": 3248
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "e56b14e9d6cb2ec47672",
+            "start_token": 0,
+            "end_token": 956
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "93241ed0fa3ab507c0e0",
+            "start_token": 0,
+            "end_token": 1184
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "d108c7fe21e1620a8366",
+            "start_token": 0,
+            "end_token": 2249
+          },
+          {
+            "source": "booksum",
+            "doc_id": "8b4e9aa1badb18cc11b6",
+            "start_token": 0,
+            "end_token": 2835
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "a46fbe5495f049a4e04f",
+            "start_token": 0,
+            "end_token": 694
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 15875
+      },
+      {
+        "doc_id": "train-pack-16384-7f6d61ddbf40d3931d0c",
+        "source": "token_pack_16384",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16380,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::193ac8931c0223894bbf",
+          "arxiv::265c5a155614a431855c",
+          "arxiv::f4c60a095dc7eecd7ea3",
+          "booksum::ecabf484985f9f8d5d4f",
+          "multi_needle::4b83be06c95ced76d313",
+          "multi_needle::6a6fe1db7a75f327141b",
+          "pg19::4e58983c1e07d2ee2184",
+          "wikihop::2ca879014408a99a33d1"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "265c5a155614a431855c",
+            "start_token": 2970,
+            "end_token": 4923
+          },
+          {
+            "source": "pg19",
+            "doc_id": "4e58983c1e07d2ee2184",
+            "start_token": 0,
+            "end_token": 4361
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "4b83be06c95ced76d313",
+            "start_token": 0,
+            "end_token": 928
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "6a6fe1db7a75f327141b",
+            "start_token": 0,
+            "end_token": 3199
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "2ca879014408a99a33d1",
+            "start_token": 0,
+            "end_token": 956
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "193ac8931c0223894bbf",
+            "start_token": 0,
+            "end_token": 1391
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "f4c60a095dc7eecd7ea3",
+            "start_token": 0,
+            "end_token": 1196
+          },
+          {
+            "source": "booksum",
+            "doc_id": "ecabf484985f9f8d5d4f",
+            "start_token": 0,
+            "end_token": 2344
+          }
+        ],
+        "pilot_split": "rank_train",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 16000
+      }
+    ],
+    "budget_train": [
+      {
+        "doc_id": "train-pack-4096-c9c6b0dad392708750a8",
+        "source": "token_pack_4096",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4096,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "booksum::df4571720abd488350be",
+          "pg19::a7d91e67f323e3bce65b",
+          "wikihop::653c38e30b3b615d26da"
+        ],
+        "components": [
+          {
+            "source": "booksum",
+            "doc_id": "df4571720abd488350be",
+            "start_token": 1473,
+            "end_token": 2699
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "653c38e30b3b615d26da",
+            "start_token": 0,
+            "end_token": 1532
+          },
+          {
+            "source": "pg19",
+            "doc_id": "a7d91e67f323e3bce65b",
+            "start_token": 0,
+            "end_token": 1322
+          }
+        ],
+        "pilot_split": "budget_train",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 4010
+      },
+      {
+        "doc_id": "train-pack-4096-f6f61d48dd7aaefe92c0",
+        "source": "token_pack_4096",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4095,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "arxiv::32b099feda140943cce5",
+          "booksum::8fad3a455209ef79b434"
+        ],
+        "components": [
+          {
+            "source": "booksum",
+            "doc_id": "8fad3a455209ef79b434",
+            "start_token": 397,
+            "end_token": 2813
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "32b099feda140943cce5",
+            "start_token": 0,
+            "end_token": 1672
+          }
+        ],
+        "pilot_split": "budget_train",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 3981
+      },
+      {
+        "doc_id": "train-pack-8192-87f0bb7f9adcc3f7253c",
+        "source": "token_pack_8192",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8192,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "arxiv::69509ee707ce3f309e70",
+          "multi_needle::819cbe492284e5cb9511",
+          "multi_needle::d930d9942487e69256a9"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "819cbe492284e5cb9511",
+            "start_token": 2156,
+            "end_token": 3176
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "69509ee707ce3f309e70",
+            "start_token": 0,
+            "end_token": 4223
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "d930d9942487e69256a9",
+            "start_token": 0,
+            "end_token": 2933
+          }
+        ],
+        "pilot_split": "budget_train",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 8096
+      },
+      {
+        "doc_id": "train-pack-8192-7b8efe507b0dafaf7694",
+        "source": "token_pack_8192",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8191,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "multi_needle::04367a176f440a817a1e",
+          "pubmed::c828ec5f8aa13097afed",
+          "wikihop::5fd9b35733a3c5a91f51"
+        ],
+        "components": [
+          {
+            "source": "pubmed",
+            "doc_id": "c828ec5f8aa13097afed",
+            "start_token": 225,
+            "end_token": 4193
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "04367a176f440a817a1e",
+            "start_token": 0,
+            "end_token": 1910
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "5fd9b35733a3c5a91f51",
+            "start_token": 0,
+            "end_token": 2298
+          }
+        ],
+        "pilot_split": "budget_train",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 7870
+      },
+      {
+        "doc_id": "train-pack-16384-21f3a0c0cd92e6d0cc84",
+        "source": "token_pack_16384",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16382,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::b19056b52babe7f416d4",
+          "arxiv::bc3417cdfb9d892a932d",
+          "booksum::09d8fcd61cadb4890b8c",
+          "booksum::b4cd1d2e490c20aec142"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "b19056b52babe7f416d4",
+            "start_token": 6435,
+            "end_token": 8172
+          },
+          {
+            "source": "booksum",
+            "doc_id": "b4cd1d2e490c20aec142",
+            "start_token": 0,
+            "end_token": 4768
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "bc3417cdfb9d892a932d",
+            "start_token": 0,
+            "end_token": 6230
+          },
+          {
+            "source": "booksum",
+            "doc_id": "09d8fcd61cadb4890b8c",
+            "start_token": 0,
+            "end_token": 3625
+          }
+        ],
+        "pilot_split": "budget_train",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 15822
+      },
+      {
+        "doc_id": "train-pack-16384-afdef969450a7c8d4024",
+        "source": "token_pack_16384",
+        "split": "train",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16380,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "multi_needle::01089c76de250abc55a3",
+          "multi_needle::186a7a4da075b0a3127a",
+          "multi_needle::5b352bdf4c452eec1cd5",
+          "pg19::83c7c7b92ba563636b44",
+          "pg19::8c97943d8e2d89c37cd3",
+          "pubmed::2fc2c949f32e9d9a32d5",
+          "pubmed::79631c5530c5f5d3119d"
+        ],
+        "components": [
+          {
+            "source": "pg19",
+            "doc_id": "8c97943d8e2d89c37cd3",
+            "start_token": 763,
+            "end_token": 4523
+          },
+          {
+            "source": "pg19",
+            "doc_id": "83c7c7b92ba563636b44",
+            "start_token": 0,
+            "end_token": 2502
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "186a7a4da075b0a3127a",
+            "start_token": 0,
+            "end_token": 3196
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "79631c5530c5f5d3119d",
+            "start_token": 0,
+            "end_token": 1691
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "5b352bdf4c452eec1cd5",
+            "start_token": 0,
+            "end_token": 966
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "2fc2c949f32e9d9a32d5",
+            "start_token": 0,
+            "end_token": 3862
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "01089c76de250abc55a3",
+            "start_token": 0,
+            "end_token": 359
+          }
+        ],
+        "pilot_split": "budget_train",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 16129
+      }
+    ],
+    "validation": [
+      {
+        "doc_id": "validation-pack-4096-5c172f539f8e0d072436",
+        "source": "token_pack_4096",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4095,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "booksum::36ded03cbf61a878e62d",
+          "pg19::ae78299c3d3d45db7c1c"
+        ],
+        "components": [
+          {
+            "source": "pg19",
+            "doc_id": "ae78299c3d3d45db7c1c",
+            "start_token": 1419,
+            "end_token": 4561
+          },
+          {
+            "source": "booksum",
+            "doc_id": "36ded03cbf61a878e62d",
+            "start_token": 0,
+            "end_token": 946
+          }
+        ],
+        "pilot_split": "validation",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 4096
+      },
+      {
+        "doc_id": "validation-pack-4096-6ef68c50c5953c0dfa68",
+        "source": "token_pack_4096",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4096,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "multi_needle::b977cc02d681d09a28b1",
+          "pg19::0e698e7ef0cde470f9c2"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "b977cc02d681d09a28b1",
+            "start_token": 3225,
+            "end_token": 5112
+          },
+          {
+            "source": "pg19",
+            "doc_id": "0e698e7ef0cde470f9c2",
+            "start_token": 0,
+            "end_token": 2201
+          }
+        ],
+        "pilot_split": "validation",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 4035
+      },
+      {
+        "doc_id": "validation-pack-8192-79649f520712a09abd56",
+        "source": "token_pack_8192",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8190,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "pubmed::000981fa78a835680b1a",
+          "pubmed::1d7768376c15d9c0dca3",
+          "pubmed::fa54895ef3c48091f00f",
+          "wikihop::56e78da77220b4fa93a0",
+          "wikihop::af0cbd941f809b1ab671"
+        ],
+        "components": [
+          {
+            "source": "pubmed",
+            "doc_id": "fa54895ef3c48091f00f",
+            "start_token": 3972,
+            "end_token": 4659
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "56e78da77220b4fa93a0",
+            "start_token": 0,
+            "end_token": 2218
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "000981fa78a835680b1a",
+            "start_token": 0,
+            "end_token": 1308
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "af0cbd941f809b1ab671",
+            "start_token": 0,
+            "end_token": 1603
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "1d7768376c15d9c0dca3",
+            "start_token": 0,
+            "end_token": 2344
+          }
+        ],
+        "pilot_split": "validation",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 7847
+      },
+      {
+        "doc_id": "validation-pack-8192-f5af81de6db7bce7ca0d",
+        "source": "token_pack_8192",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8191,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "arxiv::0d917cbd40dc640658f0",
+          "booksum::b011f93db00049b933a3",
+          "multi_needle::9988dbcce1be235b850c",
+          "pg19::03d54052a082ba320a0d"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "9988dbcce1be235b850c",
+            "start_token": 669,
+            "end_token": 1883
+          },
+          {
+            "source": "booksum",
+            "doc_id": "b011f93db00049b933a3",
+            "start_token": 0,
+            "end_token": 4476
+          },
+          {
+            "source": "pg19",
+            "doc_id": "03d54052a082ba320a0d",
+            "start_token": 0,
+            "end_token": 1389
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "0d917cbd40dc640658f0",
+            "start_token": 0,
+            "end_token": 1089
+          }
+        ],
+        "pilot_split": "validation",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 8112
+      },
+      {
+        "doc_id": "validation-pack-16384-b37327ef6faafd8989ca",
+        "source": "token_pack_16384",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16382,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::120b855f1ee419853b96",
+          "booksum::7a0ca6c8dbbc5dbb5c3c",
+          "multi_needle::343b899a139ca6f44769",
+          "multi_needle::6efdabecc2354e68cf63",
+          "multi_needle::a1f9dd13ba3593dbffcd",
+          "pubmed::37c53dd51c652b1b522d",
+          "wikihop::2374038cb8a589cbd5db",
+          "wikihop::43be3945a2e3f53df987"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "a1f9dd13ba3593dbffcd",
+            "start_token": 2340,
+            "end_token": 3162
+          },
+          {
+            "source": "booksum",
+            "doc_id": "7a0ca6c8dbbc5dbb5c3c",
+            "start_token": 0,
+            "end_token": 2872
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "2374038cb8a589cbd5db",
+            "start_token": 0,
+            "end_token": 967
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "43be3945a2e3f53df987",
+            "start_token": 0,
+            "end_token": 706
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "120b855f1ee419853b96",
+            "start_token": 0,
+            "end_token": 2776
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "6efdabecc2354e68cf63",
+            "start_token": 0,
+            "end_token": 3185
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "343b899a139ca6f44769",
+            "start_token": 0,
+            "end_token": 1924
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "37c53dd51c652b1b522d",
+            "start_token": 0,
+            "end_token": 3076
+          }
+        ],
+        "pilot_split": "validation",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 16061
+      },
+      {
+        "doc_id": "validation-pack-16384-721ab822e76314cffcea",
+        "source": "token_pack_16384",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16382,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::ea900eb1eff3746cdc9a",
+          "booksum::523ae182604d95985c4b",
+          "pg19::b8bd55722f92cea06e65",
+          "pg19::db83a6360f1a64e87de7",
+          "pubmed::9c98ef9ece61e7f06cfa"
+        ],
+        "components": [
+          {
+            "source": "booksum",
+            "doc_id": "523ae182604d95985c4b",
+            "start_token": 1753,
+            "end_token": 2847
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "9c98ef9ece61e7f06cfa",
+            "start_token": 0,
+            "end_token": 1280
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "ea900eb1eff3746cdc9a",
+            "start_token": 0,
+            "end_token": 6384
+          },
+          {
+            "source": "pg19",
+            "doc_id": "db83a6360f1a64e87de7",
+            "start_token": 0,
+            "end_token": 6902
+          },
+          {
+            "source": "pg19",
+            "doc_id": "b8bd55722f92cea06e65",
+            "start_token": 0,
+            "end_token": 692
+          }
+        ],
+        "pilot_split": "validation",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 15728
+      }
+    ],
+    "test": [
+      {
+        "doc_id": "validation-pack-4096-3244a8bce20fad26ef69",
+        "source": "token_pack_4096",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4095,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "arxiv::0062c669bb3d608bac33",
+          "multi_needle::3fa6bc17eaf79305ce86",
+          "pg19::b1ed9fc08d149a58223e"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "3fa6bc17eaf79305ce86",
+            "start_token": 1733,
+            "end_token": 1863
+          },
+          {
+            "source": "pg19",
+            "doc_id": "b1ed9fc08d149a58223e",
+            "start_token": 0,
+            "end_token": 2504
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "0062c669bb3d608bac33",
+            "start_token": 0,
+            "end_token": 1446
+          }
+        ],
+        "pilot_split": "test",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 4079
+      },
+      {
+        "doc_id": "validation-pack-4096-a028cbebd1c9b8b7b6f6",
+        "source": "token_pack_4096",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 4096,
+        "actual_token_count": 4095,
+        "packed_token_count_before_roundtrip": 4096,
+        "component_doc_ids": [
+          "booksum::5d54fd84c1ea2e0d0143",
+          "booksum::62fbb6569382c2017389",
+          "multi_needle::fc284ad4cbb38652a093"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "fc284ad4cbb38652a093",
+            "start_token": 3704,
+            "end_token": 5097
+          },
+          {
+            "source": "booksum",
+            "doc_id": "5d54fd84c1ea2e0d0143",
+            "start_token": 0,
+            "end_token": 1380
+          },
+          {
+            "source": "booksum",
+            "doc_id": "62fbb6569382c2017389",
+            "start_token": 0,
+            "end_token": 1307
+          }
+        ],
+        "pilot_split": "test",
+        "pilot_max_tokens": 2048,
+        "original_llama_tokens": 4083
+      },
+      {
+        "doc_id": "validation-pack-8192-7002f1290a472de68a9d",
+        "source": "token_pack_8192",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8192,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "booksum::d7764b533d18f9f8605f",
+          "multi_needle::41c7bf2885f725caeb0a",
+          "multi_needle::f36b47e5dbd3fc56c4b3"
+        ],
+        "components": [
+          {
+            "source": "booksum",
+            "doc_id": "d7764b533d18f9f8605f",
+            "start_token": 3224,
+            "end_token": 6741
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "41c7bf2885f725caeb0a",
+            "start_token": 0,
+            "end_token": 1944
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "f36b47e5dbd3fc56c4b3",
+            "start_token": 0,
+            "end_token": 2715
+          }
+        ],
+        "pilot_split": "test",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 8176
+      },
+      {
+        "doc_id": "validation-pack-8192-1c2addce4ba916ba5f89",
+        "source": "token_pack_8192",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 8192,
+        "actual_token_count": 8191,
+        "packed_token_count_before_roundtrip": 8192,
+        "component_doc_ids": [
+          "multi_needle::09c544d0d5bf758671e5",
+          "multi_needle::75ff97758723dba02e3a",
+          "pubmed::5e45ca26fe37e48e5cd1",
+          "wikihop::2977caba7a3a45104024"
+        ],
+        "components": [
+          {
+            "source": "multi_needle",
+            "doc_id": "09c544d0d5bf758671e5",
+            "start_token": 1139,
+            "end_token": 1878
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "2977caba7a3a45104024",
+            "start_token": 0,
+            "end_token": 2451
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "5e45ca26fe37e48e5cd1",
+            "start_token": 0,
+            "end_token": 1201
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "75ff97758723dba02e3a",
+            "start_token": 0,
+            "end_token": 3777
+          }
+        ],
+        "pilot_split": "test",
+        "pilot_max_tokens": 4096,
+        "original_llama_tokens": 8076
+      },
+      {
+        "doc_id": "validation-pack-16384-52bad6586a60493d6fac",
+        "source": "token_pack_16384",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16380,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::9844dc1bddff80f3c78e",
+          "multi_needle::41214b0db6b6ee056b4d",
+          "multi_needle::952980968a76d336f6fb",
+          "pg19::d9bee56e66d71b83e1e2",
+          "pubmed::a2948b1dbd5f43c6b78b",
+          "pubmed::e1cb3a9a83463fa674ea",
+          "pubmed::e2fe74fe76cc90fec522",
+          "wikihop::05052da510ef5715586d"
+        ],
+        "components": [
+          {
+            "source": "arxiv",
+            "doc_id": "9844dc1bddff80f3c78e",
+            "start_token": 0,
+            "end_token": 4669
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "a2948b1dbd5f43c6b78b",
+            "start_token": 0,
+            "end_token": 2590
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "41214b0db6b6ee056b4d",
+            "start_token": 0,
+            "end_token": 967
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "952980968a76d336f6fb",
+            "start_token": 0,
+            "end_token": 957
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "e1cb3a9a83463fa674ea",
+            "start_token": 0,
+            "end_token": 2981
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "e2fe74fe76cc90fec522",
+            "start_token": 0,
+            "end_token": 1027
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "05052da510ef5715586d",
+            "start_token": 0,
+            "end_token": 1136
+          },
+          {
+            "source": "pg19",
+            "doc_id": "d9bee56e66d71b83e1e2",
+            "start_token": 0,
+            "end_token": 2001
+          }
+        ],
+        "pilot_split": "test",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 15675
+      },
+      {
+        "doc_id": "validation-pack-16384-16ae761d91af90f4a6c9",
+        "source": "token_pack_16384",
+        "split": "validation",
+        "tokenizer_name": "Qwen/Qwen2.5-7B-Instruct",
+        "target_token_count": 16384,
+        "actual_token_count": 16382,
+        "packed_token_count_before_roundtrip": 16384,
+        "component_doc_ids": [
+          "arxiv::055a2e35804089f28a7e",
+          "multi_needle::a15d2bca2113deed1b09",
+          "multi_needle::b6f291fb86199852520a",
+          "pubmed::2fc6e5e49cef7b9dafd9",
+          "wikihop::1a69e65b63201648b260",
+          "wikihop::f5a961437c3b52a3bf73"
+        ],
+        "components": [
+          {
+            "source": "wikihop",
+            "doc_id": "f5a961437c3b52a3bf73",
+            "start_token": 589,
+            "end_token": 1463
+          },
+          {
+            "source": "wikihop",
+            "doc_id": "1a69e65b63201648b260",
+            "start_token": 0,
+            "end_token": 1171
+          },
+          {
+            "source": "arxiv",
+            "doc_id": "055a2e35804089f28a7e",
+            "start_token": 0,
+            "end_token": 3829
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "a15d2bca2113deed1b09",
+            "start_token": 0,
+            "end_token": 5056
+          },
+          {
+            "source": "pubmed",
+            "doc_id": "2fc6e5e49cef7b9dafd9",
+            "start_token": 0,
+            "end_token": 3543
+          },
+          {
+            "source": "multi_needle",
+            "doc_id": "b6f291fb86199852520a",
+            "start_token": 0,
+            "end_token": 1871
+          }
+        ],
+        "pilot_split": "test",
+        "pilot_max_tokens": 8192,
+        "original_llama_tokens": 15891
+      }
+    ]
+  },
+  "source_pools": {
+    "train": "/root/adablock/data/train_strict_packed_tokens.jsonl",
+    "validation": "/root/adablock/results/ranker_audit_20261003_v1/validation_selected.jsonl",
+    "test": "/root/adablock/results/ranker_audit_20261003_v1/test_reserved.jsonl"
+  },
+  "isolation": [
+    {
+      "splits": [
+        "rank_train",
+        "budget_train"
+      ],
+      "component_overlap": 0
+    },
+    {
+      "splits": [
+        "rank_train",
+        "validation"
+      ],
+      "component_overlap": 0
+    },
+    {
+      "splits": [
+        "rank_train",
+        "test"
+      ],
+      "component_overlap": 0
+    },
+    {
+      "splits": [
+        "budget_train",
+        "validation"
+      ],
+      "component_overlap": 0
+    },
+    {
+      "splits": [
+        "budget_train",
+        "test"
+      ],
+      "component_overlap": 0
+    },
+    {
+      "splits": [
+        "validation",
+        "test"
+      ],
+      "component_overlap": 0
+    }
+  ],
+  "lengths": [
+    2048,
+    4096,
+    8192
+  ],
+  "layers": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31
+  ],
+  "kv_heads": 8,
+  "block_size": 16,
+  "sink_tokens": 32,
+  "local_window_blocks": 32,
+  "cobs_rank": 4,
+  "sample_stride": 256,
+  "coverage_target": 0.95,
+  "budget_classes": [
+    0,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    "ALL"
+  ],
+  "ranker_epochs": 3,
+  "ranker_batch_size": 64,
+  "ranker_lr": 0.0002,
+  "budget_input": "current query, layer/head identity, candidate count and frozen ranker score summaries; no teacher attention features",
+  "evaluation_scope": "held-out teacher-forced attention scenes; not LongBench answer F1 or measured decoding speed",
+  "tokenization": "entire raw training text tokenized once with Llama tokenizer, then token truncation",
+  "preservation": "new isolated directory; old datasets, weights, evaluations unchanged"
+}

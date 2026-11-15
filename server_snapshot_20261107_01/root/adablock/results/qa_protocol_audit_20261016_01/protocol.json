@@ -1,0 +1,12 @@
+{
+  "selection": "12 training rows at sorted-length indices 0,4,...44 plus all 12 validation rows; no outcome selection",
+  "variants": [
+    "open",
+    "candidate_aware"
+  ],
+  "max_new_tokens": 32,
+  "attention": "full",
+  "candidate_order": "original dataset order",
+  "note": "Candidate-aware generative diagnostic, not reproduction of original candidate-scoring architecture",
+  "selected_sha256": "146c0007f2070e49c41357f58704affccf8f358201b42f1a3d152ac1db925996"
+}

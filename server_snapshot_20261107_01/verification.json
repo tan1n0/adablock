@@ -1,0 +1,235 @@
+{
+  "files_sha256_verified": 1043,
+  "core_comparison": [
+    {
+      "name": "block_ranker.py",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/models/block_ranker.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "block_ranker.py",
+      "kind": "actual_import_path_checked",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/models/block_ranker.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "ranking_loss.py",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_loss.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "ranking_loss.py",
+      "kind": "actual_import_path_checked",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_loss.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "ranking_batch.py",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_batch.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "ranking_batch.py",
+      "kind": "actual_import_path_checked",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_batch.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "qk_block_oracle.py",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/qk_block_oracle.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "ranking_data.py",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/ranking_data.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "block_oracle.py",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/utils/block_oracle.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "train_block_ranker_batched.py",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/source/scripts/train_block_ranker_batched.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "ranker_run_config.json",
+      "kind": "path",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/run_config.json",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "budget_pilot.py",
+      "kind": "path",
+      "path": "/root/adablock_sab90_20261019_01/vendor/budget_pilot.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "budget_pilot.py",
+      "kind": "actual_import_path_checked",
+      "path": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/budget_pilot.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "runtime.py",
+      "kind": "path",
+      "path": "/root/adablock_sab90_20261019_01/vendor/runtime.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "runtime.py",
+      "kind": "actual_import_path_checked",
+      "path": "/root/adablock_sab90_20261019_01/vendor/runtime.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "run.py",
+      "kind": "path",
+      "path": "/root/adablock_sab90_20261019_01/vendor/run.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "run.py",
+      "kind": "actual_import_path_checked",
+      "path": "/root/adablock_sab90_20261019_01/vendor/run.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "teacher_collect.py",
+      "kind": "path",
+      "path": "/root/adablock_sab90_20261019_01/collect.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "sab_core.py",
+      "kind": "path",
+      "path": "/root/adablock_sab90_20261019_01/core.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "sab_train.py",
+      "kind": "path",
+      "path": "/root/adablock_sab90_20261019_01/train.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "gpu_controller.py",
+      "kind": "path",
+      "path": "/root/adablock_ruler_autonomous_20261022_01/gpu_controller.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "baseline_controller.py",
+      "kind": "path",
+      "path": "/root/adablock_ruler_autonomous_20261022_01/baseline_controller.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "fast_digest.py",
+      "kind": "path",
+      "path": "/root/adablock_ruler_autonomous_20261022_01/fast_digest.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "run_autonomous.py",
+      "kind": "path",
+      "path": "/root/adablock_ruler_autonomous_20261022_01/run_autonomous.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "experiment.py",
+      "kind": "path",
+      "path": "/root/adablock_ruler_autonomous_20261022_01/experiment.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "cache_buffer.py",
+      "kind": "path",
+      "path": "/root/adablock_ruler_autonomous_20261022_01/cache_buffer.py",
+      "present": true,
+      "unchanged": true
+    },
+    {
+      "name": "graph_ranker_v3.py",
+      "kind": "path",
+      "path": "/root/adablock_ranker_execution_20261028_01/graph_ranker_v3.py",
+      "present": true,
+      "unchanged": true
+    }
+  ],
+  "historical_method_fragments": [
+    {
+      "path": "/root/adablock/results/fasa_full_gap_audit_20261005/FlashAttnFunc_forward.py",
+      "first_line": "@staticmethod",
+      "standalone_syntax": "fails due to class-method indentation",
+      "dedented_syntax": "passed"
+    },
+    {
+      "path": "/root/adablock/results/fasa_full_gap_audit_20261005/qwen2_causalmask.py",
+      "first_line": "def _update_causal_mask(",
+      "standalone_syntax": "fails due to class-method indentation",
+      "dedented_syntax": "passed"
+    },
+    {
+      "path": "/root/adablock/results/fasa_full_gap_audit_20261005/qwen2_fa2_forward.py",
+      "first_line": "def forward(",
+      "standalone_syntax": "fails due to class-method indentation",
+      "dedented_syntax": "passed"
+    },
+    {
+      "path": "/root/adablock/results/fasa_full_gap_audit_20261005/qwen2_lm_forward.py",
+      "first_line": "@add_start_docstrings_to_model_forward(QWEN2_INPUTS_DOCSTRING)",
+      "standalone_syntax": "fails due to class-method indentation",
+      "dedented_syntax": "passed"
+    },
+    {
+      "path": "/root/adablock/results/fasa_full_gap_audit_20261005/qwen2_prepare_generation.py",
+      "first_line": "def prepare_inputs_for_generation(",
+      "standalone_syntax": "fails due to class-method indentation",
+      "dedented_syntax": "passed"
+    }
+  ],
+  "credential_scan_flags": [],
+  "gpu_experiments_run": false,
+  "git_index_validation": {
+    "server_files": 1043,
+    "hashes_matched": 1043,
+    "python_modules": 827,
+    "historical_fragments": 5,
+    "json_configs": 101
+  }
+}

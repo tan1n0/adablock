@@ -1,0 +1,38 @@
+{
+  "task": "hotpotqa",
+  "samples": 200,
+  "selection": "complete official LongBench HotpotQA test in source order",
+  "method": "learned",
+  "physical_gpu": "3",
+  "parallel_methods": true,
+  "reuse_previous_results": false,
+  "requested_context_limit": 32768,
+  "model_total_positions": 32768,
+  "max_input_length": 32640,
+  "max_new_tokens": 128,
+  "block_size": 16,
+  "sink_tokens": 32,
+  "local_window_blocks": 32,
+  "middle_blocks": 32,
+  "seed": 42,
+  "dtype": "bfloat16",
+  "prefill": "full SDPA all methods",
+  "decode": "greedy raw logits, same manual decoder API",
+  "learned_layers": [
+    12,
+    20,
+    27
+  ],
+  "other_learned_layers": "COBS fallback",
+  "checkpoint": "/root/adablock/checkpoints/ranker_ddp_fresh_global64_20261003/best.pt",
+  "checkpoint_sha256": "18113b5cd6f34b8a9b9925694bbc616787ad77c71d40d4d0b3eecf2aedaff640",
+  "source_sha256": {
+    "scripts/eval_longbench_adablock_sparse.py": "045f7f63993adcfff3be41e0847c7157d83ae6e9ed5823eb6d9beb1a0445c715",
+    "models/layer_head_sparse_qwen.py": "b96d815caf0ec4fcfc608f202390189aab9b0746f42418d329f7f8a5758f865a",
+    "models/block_ranker.py": "0c895cdfac47aadd07081375f21bc21a559d29d2017f21a81fab65d06140e601",
+    "utils/qk_block_oracle.py": "43b68446aed1b02db28411bb4758ca53eaccbaeac8897422feffd305eb6ba151"
+  },
+  "prompt": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+  "metric": "Official LongBench normalized QA token F1, max over references, macro average *100",
+  "metric_source": "https://github.com/THUDM/LongBench/blob/main/LongBench/metrics.py"
+}

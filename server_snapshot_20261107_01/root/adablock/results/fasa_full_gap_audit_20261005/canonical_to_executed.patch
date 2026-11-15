@@ -1,0 +1,74 @@
+--- git_verified_entry
++++ actually_executed_entry
+@@ -9,20 +9,11 @@
+ import sys
+ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ 
+-from monkey_patch.snapkv import snapkv_ as snapkv
+-from monkey_patch.streamingllm import streamingllm_ as streamingllm
+-from monkey_patch.oracle.oracle_static import replace_oracle_static
+-
+-
+-from monkey_patch.frequency.dynamic_frequency import replace_llama_df, replace_mistral_df, replace_qwen_df
+-from monkey_patch.frequency.utils import constructe_adaptive_selection
++
++
+ from longbench.eval import scorer
+ 
+ 
+-from monkey_patch.quest.quest_attention import enable_quest_attention_eval
+-from monkey_patch.quest.llama import enable_tuple_kv_cache_for_llama
+-from monkey_patch.quest.mistral import enable_tuple_kv_cache_for_mistral
+-from monkey_patch.quest.qwen import enable_tuple_kv_cache_for_qwen
+ 
+ cache_dir = os.environ.get("FASA_MODEL_DIR", "./models")
+ 
+@@ -30,22 +21,22 @@
+     "narrativeqa": "You are given a story, which can be either a novel or a movie script, and a question. Answer the question asconcisely as you can, using a single phrase if possible. Do not provide any explanation.\n\nStory: {context}\n\nNow, answer the question based on the story asconcisely as you can, using a single phrase if possible. Do not provide any explanation.\n\nQuestion: {input}\n\nAnswer:",
+     "qasper": "You are given a scientific article and a question. Answer the question as concisely as you can, using a single phrase or sentence if possible. If the question cannot be answered based on the information in the article, write \"unanswerable\". If the question is a yes/no question, answer \"yes\", \"no\", or \"unanswerable\". Do not provide any explanation.\n\nArticle: {context}\n\n Answer the question based on the above article as concisely as you can, using a single phrase or sentence if possible. If the question cannot be answered based on the information in the article, write \"unanswerable\". If the question is a yes/no question, answer \"yes\", \"no\", or \"unanswerable\". Do not provide any explanation.\n\nQuestion: {input}\n\nAnswer:",
+     "multifieldqa_en": "Read the following text and answer briefly.\n\n{context}\n\nNow, answer the following question based on the above text, only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+-    "multifieldqa_zh": "阅读以下文字并用中文简短回答：\n\n{context}\n\n现在请基于上面的文章回答下面的问题，只告诉我答案，不要输出任何其他字词。\n\n问题：{input}\n回答：",
++    "multifieldqa_zh": "�Ķ��������ֲ������ļ�̻ش�\n\n{context}\n\n�����������������»ش���������⣬ֻ�����Ҵ𰸣���Ҫ����κ������ִʡ�\n\n���⣺{input}\n�ش�",
+     "hotpotqa": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+     "2wikimqa": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+     "musique": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {input}\nAnswer:",
+-    "dureader": "请基于给定的文章回答下述问题。\n\n文章：{context}\n\n请基于上述文章回答下面的问题。\n\n问题：{input}\n回答：",
++    "dureader": "����ڸ��������»ش��������⡣\n\n���£�{context}\n\n������������»ش���������⡣\n\n���⣺{input}\n�ش�",
+     "gov_report": "You are given a report by a government agency. Write a one-page summary of the report.\n\nReport:\n{context}\n\nNow, write a one-page summary of the report.\n\nSummary:",
+     "qmsum": "You are given a meeting transcript and a query containing a question or instruction. Answer the query in one or more sentences.\n\nTranscript:\n{context}\n\nNow, answer the query based on the above meeting transcript in one or more sentences.\n\nQuery: {input}\nAnswer:",
+     "multi_news": "You are given several news passages. Write a one-page summary of all news. \n\nNews:\n{context}\n\nNow, write a one-page summary of all the news.\n\nSummary:",
+-    "vcsum": "下面有一段会议记录，请你阅读后，写一段总结，总结会议的内容。\n会议记录：\n{context}\n\n会议总结：",
++    "vcsum": "������һ�λ����¼�������Ķ���дһ���ܽᣬ�ܽ��������ݡ�\n�����¼��\n{context}\n\n�����ܽ᣺",
+     "trec": "Please determine the type of the question below. Here are some examples of questions.\n\n{context}\n{input}",
+     "triviaqa": "Answer the question based on the given passage. Only give me the answer and do not output any other words. The following are some examples.\n\n{context}\n\n{input}",
+     "samsum": "Summarize the dialogue into a few short sentences. The following are some examples.\n\n{context}\n\n{input}",
+-    "lsht": "请判断给定新闻的类别，下面是一些例子。\n\n{context}\n{input}",
++    "lsht": "���жϸ������ŵ����������һЩ���ӡ�\n\n{context}\n{input}",
+     "passage_count": "There are some paragraphs below sourced from Wikipedia. Some of them may be duplicates. Please carefully read these paragraphs and determine how many unique paragraphs there are after removing duplicates. In other words, how many non-repeating paragraphs are there in total?\n\n{context}\n\nPlease enter the final count of unique paragraphs after removing duplicates. The output format should only contain the number, such as 1, 2, 3, and so on.\n\nThe final answer is: ",
+     "passage_retrieval_en": "Here are 30 paragraphs from Wikipedia, along with an abstract. Please determine which paragraph the abstract is from.\n\n{context}\n\nThe following is an abstract.\n\n{input}\n\nPlease enter the number of the paragraph that the abstract is from. The answer format must be like \"Paragraph 1\", \"Paragraph 2\", etc.\n\nThe answer is: ",
+-    "passage_retrieval_zh": "以下是若干段落文字，以及其中一个段落的摘要。请确定给定的摘要出自哪一段。\n\n{context}\n\n下面是一个摘要\n\n{input}\n\n请输入摘要所属段落的编号。答案格式必须是\"段落1\"，\"段落2\"等格式\n\n答案是：",
++    "passage_retrieval_zh": "���������ɶ������֣��Լ�����һ�������ժҪ����ȷ��������ժҪ������һ�Ρ�\n\n{context}\n\n������һ��ժҪ\n\n{input}\n\n������ժҪ��������ı�š��𰸸�ʽ������\"����1\"��\"����2\"�ȸ�ʽ\n\n���ǣ�",
+     "lcc": "Please complete the code given below. \n{context}Next line of code:\n",
+     "repobench-p": "Please complete the code given below. \n{context}{input}Next line of code:\n"
+ }
+@@ -106,7 +97,7 @@
+     with open(file_path, 'r', encoding='utf-8') as f:
+         for line in f:
+             line = line.strip()
+-            if line:  # 跳过空行
++            if line:  # ��������
+                 data.append(json.loads(line))
+     return data
+ def parse_args(args=None):
+@@ -236,9 +227,9 @@
+     torch.cuda.manual_seed_all(seed)
+ 
+ def load_model_and_tokenizer(path, model_name):
+-    tokenizer = AutoTokenizer.from_pretrained(path,trust_remote_code=True)
++    tokenizer = AutoTokenizer.from_pretrained(path,trust_remote_code=False,local_files_only=True)
+     tokenizer.pad_token_id = tokenizer.eos_token_id
+-    model = AutoModelForCausalLM.from_pretrained(path, torch_dtype=torch.bfloat16,attn_implementation="flash_attention_2",trust_remote_code=True).to("cuda")
++    model = AutoModelForCausalLM.from_pretrained(path, torch_dtype=torch.bfloat16,attn_implementation="flash_attention_2",trust_remote_code=False,local_files_only=True,device_map={'model.embed_tokens': 0, 'model.layers.0': 1, 'model.layers.1': 1, 'model.layers.2': 1, 'model.layers.3': 1, 'model.layers.4': 1, 'model.layers.5': 1, 'model.layers.6': 1, 'model.layers.7': 1, 'model.layers.8': 2, 'model.layers.9': 2, 'model.layers.10': 2, 'model.layers.11': 2, 'model.layers.12': 2, 'model.layers.13': 2, 'model.layers.14': 2, 'model.layers.15': 2, 'model.layers.16': 2, 'model.layers.17': 2, 'model.layers.18': 3, 'model.layers.19': 3, 'model.layers.20': 3, 'model.layers.21': 3, 'model.layers.22': 3, 'model.layers.23': 3, 'model.layers.24': 3, 'model.layers.25': 3, 'model.layers.26': 3, 'model.layers.27': 3, 'model.norm': 3, 'lm_head': 0},max_memory={0: '20GiB', 1: '12GiB', 2: '12GiB', 3: '12GiB'})
+     model = model.eval()
+     return model, tokenizer
+ full_longeval_datasets = [

@@ -1,0 +1,6 @@
+{
+  "script_sha256": "732ad712ea8c0319d944d8682b4aa0e4a6a35a6bc2afc3881bbae37219fea794",
+  "source_index": 165,
+  "selection": "All layers with at least one deficient head in the original adaptive first decode step; one layer repaired per run; plus none/all controls",
+  "purpose": "Post-hoc localization only"
+}

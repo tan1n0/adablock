@@ -1,0 +1,43 @@
+{
+  "config": {
+    "seed": 20261019,
+    "deterministic_training": true,
+    "rho": 0.9,
+    "quantile": 0.95,
+    "rounds": 2,
+    "rank_groups_per_step": 8,
+    "rank_positions_per_layer": 4,
+    "rank_lr": 0.0002,
+    "budget_lr": 0.001,
+    "budget_batch": 512,
+    "budget_epochs_per_round": 20,
+    "weight_decay": 0.01,
+    "boundary_weight": 1.0,
+    "boundary_pairs": 32,
+    "total_pair_cap": 192,
+    "normalization": "frozen shared initial budget-train statistics",
+    "objective": "unweighted budget cross entropy, identical for S/A/B",
+    "checkpoint": "minimum calibration CE in final 20 budget epochs, final ranker fixed"
+  },
+  "branches": {
+    "S": "rank0,rank1,budget0,budget1",
+    "A": "rank0,budget0,rank1,budget1",
+    "B": "same as A plus actual-K boundary loss"
+  },
+  "initial_ranker": "/root/adablock/results/llama_budget_rank_pilot_20261015_01/ranker/best.pt",
+  "initial_budget": "/root/adablock_budget_rho_20261019_01/rho90/best.pt",
+  "initial_ranker_sha256": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+  "initial_budget_sha256": "9aef929da261b7d52d43ff821506ebceea93cc75bf80874923adb4cf3de79ec2",
+  "rank_data": "original pilot rank_train, 12 documents, 4 evenly-spaced positions per document/layer, all 8 KV heads",
+  "budget_data": "same original 48 train and 12 held-out WikiHop QA, same full/old-adaptive trajectories",
+  "raw_data_manifest_sha256": "814ef0a7f5e85a9c9492385f02798c5f246975264fc16b90a14e8f58052a5ee3",
+  "qa_selection_sha256": "52dd011e10834895cbfd15a08f1e471254a86dc7ebea205ec6474ba0c8fbc326",
+  "qa": "same frozen 32 HotpotQA TRAIN questions from previous rho comparison; no new QA selection",
+  "policy": "q=.95 remains fixed; rho=.90 for all label generation and rank positives",
+  "common_objective": "original CE only for every budget update; no changed cost/quality penalties",
+  "fairness": "same initial models, data, normalization, rank updates and budget epochs; bounded pair count; report actual pairs and time",
+  "teacher": "full attention offline only; no teacher access in deployed selection",
+  "boundary": "hard K and hard top-K detached; selected low-mass versus unselected high-mass blocks; <=32 extra pairs; weight 1",
+  "constraints": "No coverage-target changes, hyperparameter sweeps or QA-based checkpoint selection",
+  "gpu_collection": "4 separate single-GPU workers; full Llama unloaded before small-model training"
+}

@@ -1,0 +1,41 @@
+{
+  "tasks": [
+    "niah_multikey_3",
+    "cwe",
+    "fwe"
+  ],
+  "lengths": [
+    8192,
+    16384,
+    32768
+  ],
+  "samples_per_cell": 50,
+  "n": 450,
+  "generation_seed": 42,
+  "ratios": [
+    0.1,
+    0.15,
+    0.25,
+    0.4
+  ],
+  "official_caps": {
+    "niah_multikey_3": 128,
+    "cwe": 120,
+    "fwe": 50
+  },
+  "official_commit": "c3f5e3b4f87f97e048793bb510a3a6b19a46bf3a",
+  "model": "/root/autodl-tmp/models/Meta-Llama-3.1-8B-Instruct-359efdbb",
+  "prompt": "Official meta-llama3 template; input + answer_prefix, no extra wrapping",
+  "decoding": "greedy; no string stops; model generation_config EOS; native generation parity checked before launch",
+  "scoring": "Invoke official postprocess_pred and task metric from pinned source",
+  "limitations": [
+    "50 per task/length rather than official default 500",
+    "Three-task and three-length subset, not full RULER suite",
+    "Custom HF sparse runtime; official Llama recipe uses vLLM; no claimed vLLM bitwise parity",
+    "Full prefill and shared first generated token; sparse decoding only",
+    "Same logical read quota per layer; padded cost is a slot proxy, not speedup",
+    "BF16 chunked prefill can break near-tied greedy scores; native-prefill custom decoder parity is checked separately. Not bitwise identical to unchunked inference."
+  ],
+  "gate": "No bypass: CPU data/source audit, native HF full decode parity on short probe, then nine-cell S/A/B smoke; investigate truncation or empty outputs before full launch; no selection by B-A scores",
+  "official_fewshot": "Preserve default CWE one-shot example, including its extra chat/BOS segment; no added examples for other tasks."
+}

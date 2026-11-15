@@ -1,0 +1,37 @@
+{
+  "objective": "unweighted cross entropy only",
+  "epochs": 40,
+  "batch_size": 512,
+  "lr": 0.001,
+  "seed": 20261015,
+  "feature_size": 588,
+  "parameters": 84233,
+  "selection": "minimum document-held-out validation cross entropy",
+  "calibration": "lowest validation mean block cost among fixed probability quantiles with >=95% scenes reaching 95% mass",
+  "quantiles": [
+    0.5,
+    0.7,
+    0.8,
+    0.9,
+    0.95,
+    0.975,
+    0.99,
+    0.995,
+    0.999,
+    1.0
+  ],
+  "ranker_sha256": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+  "budget_classes": [
+    0,
+    4,
+    8,
+    16,
+    32,
+    64,
+    128,
+    256,
+    "ALL"
+  ],
+  "normalization": "budget training feature statistics only, standard deviation floor .001, clip [-8,8]",
+  "deployment_note": "budget sees ranking scores after all candidate scores are computed; sparse attention read budget only"
+}

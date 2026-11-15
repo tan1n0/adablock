@@ -14,6 +14,7 @@
 | experiments/one_off/ | 依赖固定数据或 GPU 配置的单次实验脚本 | 跟踪 |
 | experiments/code/ | 从旧运行目录收集、按内容去重的历史实验源码 | 跟踪 |
 | experiments/runs/、experiments/archives/ | 历史运行快照与结果压缩包 | 忽略，保留本地文件 |
+| server_snapshot_20261107_01/ 与根目录中带日期的实验目录 | 远端已提交的服务器源码与协议快照；索引见 CODE_SNAPSHOT.md | 跟踪，历史归档 |
 | tools/reports/ | PPT 和文档生成器 | 跟踪 |
 | docs/ | 架构说明与实验记录 | 跟踪 |
 | data/、checkpoints/、results/、logs/ | 数据、权重、结果、运行日志 | 忽略，保留本地文件 |

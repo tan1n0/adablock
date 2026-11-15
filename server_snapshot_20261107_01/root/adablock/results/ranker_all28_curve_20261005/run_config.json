@@ -1,0 +1,45 @@
+{
+  "source_sha256": {
+    "scripts/train_ranker_curve.py": "9b1ab1bad7849d3652cd5491b0e87b551d38d8d0ae6f136174b26a67448abd8e",
+    "scripts/check_ranker_curve_ddp.py": "510867f8ad8420fc018f2b6dd1d0bec9d71733dc3346f7237e016dda81e3ae69",
+    "utils/ranking_curve.py": "da170129a4603f1c63167f3122ee250c5a2870b9d5c296ced5b8327f671a9598",
+    "utils/ranking_curve_eval.py": "e1d85b9c207bfb55205bea36980e45310ecb8a218fbab29f4c0c0e88fdf279f9",
+    "utils/ranking_ddp.py": "43698a63898b526ac7ffe3fe50273d6d86455d683f0ce0293ca7230e1c72d5f4",
+    "utils/ranking_batch.py": "914a375c89ad5ac97616affd93e877ecb7d4cfd9ee16cf1a98cfc6d2a77de4cd",
+    "utils/ranking_loss.py": "7852536e86343a541e15b5e866d7f4c5fe35f9f08e05f371a3fdedb8af0d7aa1",
+    "utils/ranking_data.py": "abf05e488d843c5679eb1fed2d3b0c5f3dda537dd57d66f2647d35ff991bebdd",
+    "utils/ranking_eval.py": "9a655d8ca78ba3f756bc48bf1b399b3ad61f6d84825e754deae9589ef733c1b3",
+    "models/block_ranker.py": "0c895cdfac47aadd07081375f21bc21a559d29d2017f21a81fab65d06140e601"
+  },
+  "seed": 42,
+  "lr": 0.0002,
+  "weight_decay": 0.01,
+  "global_batch": 64,
+  "world_size": 4,
+  "local_batch": 16,
+  "targets": [
+    5000,
+    20000,
+    50000
+  ],
+  "torch_deterministic_algorithms": true,
+  "CUBLAS_WORKSPACE_CONFIG": ":4096:8",
+  "rank_mapping": "plan batch reshape(4,4,4).transpose(1,0,2).reshape(64), then each rank takes16; one query from each length bucket per rank",
+  "production_command": "/root/miniconda3/envs/ada/bin/python -m torch.distributed.run --standalone --nproc_per_node=4 scripts/train_ranker_curve.py --work /root/adablock/results/ranker_all28_curve_20261005 --out /root/adablock/checkpoints/ranker_all28_curve_20261005",
+  "resume": "same command plus --resume; manager also resumes from resume_latest.pt automatically up to3 retries",
+  "no_longbench_or_budget_internal_val": true,
+  "validation_distribution": "whole shards round-robin across4 ranks; all16 docs and length bins per rank, 7 layers per rank, aggregate28 layers",
+  "versions": {
+    "python": "3.10.20 (main, Mar 11 2026, 17:46:40) [GCC 14.3.0]",
+    "torch": "2.5.1+cu121",
+    "cuda": "12.1",
+    "numpy": "2.2.6"
+  },
+  "authoritative_snapshot": "source_snapshot paths match source_sha256",
+  "final_metrics_source_sha256": {
+    "scripts/eval_ranker_curve_document_weights.py": "9f4c0036c3cee2401279a406c6d2f395477f91fe3a90c676cab3f01303536bfb",
+    "utils/ranking_curve_document_eval.py": "7d2e267234ae66dd82a19ba3c2bc106043cc95839b06f93750f5cb9f8f180b03",
+    "results/ranker_all28_curve_20261005/observer.py": "27639eaf873be07d5d9b0eee7bc095b3d412eded36999fd98d96b16e92c72221"
+  },
+  "document_weight_unit": "16 packed validation sequences identified by manifest document_index, not individual constituent source documents"
+}

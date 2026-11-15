@@ -1,0 +1,79 @@
+{
+  "seed": 20261015,
+  "source": "/root/adablock/.cache/adablock_training_sources/datasets--MoE-UNC--wikihop/snapshots/2a59420990da1085b42b474cc38d2520c27a6325/data/train-00000-of-00001.parquet",
+  "source_sha256": "c7cfba5e9a7777f9fc0de6aad096f56de39b37fbc4e6ebba2de3753cb19b2212",
+  "source_metadata_sha256": "6720c3beebb212d05b19320ef10af615787d2e4033cd58c4756c1ae7f6d781ab",
+  "split_counts": {
+    "budget_train": 48,
+    "validation": 12,
+    "test": 12
+  },
+  "eligible_counts": {
+    "train": 249,
+    "validation": 33
+  },
+  "excluded": {
+    "outside_2k_8k": 680,
+    "restored_longbench_overlap": 17,
+    "previous_pilot_component": 21,
+    "ambiguous_or_unmatched": 25
+  },
+  "length_summary": {
+    "budget_train": {
+      "min": 2073,
+      "max": 6576,
+      "mean": 3137.625
+    },
+    "validation": {
+      "min": 2115,
+      "max": 7074,
+      "mean": 3294.75
+    },
+    "test": {
+      "min": 2091,
+      "max": 5083,
+      "mean": 3283.0
+    }
+  },
+  "selection": "Seeded sampling from length thirds, before generation; full original supports, no truncation or added distractors.",
+  "split_source": "Budget train from strict WikiHop train; validation/test from strict WikiHop validation, excluding every prior pilot component.",
+  "shared_13gram_fingerprints": {
+    "budget_train__validation": 286,
+    "budget_train__test": 315,
+    "validation__test": 115
+  },
+  "decontamination": {
+    "ngram_words": 13,
+    "stride": 5,
+    "min_matches": 3,
+    "files": [
+      "/root/adablock/data/longbench/gov_report.jsonl",
+      "/root/adablock/data/longbench/hotpotqa.jsonl",
+      "/root/adablock/data/longbench/multifieldqa_en.jsonl",
+      "/root/adablock/data/longbench/musique.jsonl",
+      "/root/adablock/data/longbench/narrativeqa.jsonl",
+      "/root/adablock/data/longbench/qasper.jsonl"
+    ]
+  },
+  "answer_leakage_guard": "Gold answer suffix removed structurally; answers naturally occurring in supporting documents are retained.",
+  "prompt_template": "Answer the question based on the given passages. Only give me the answer and do not output any other words.\n\nThe following are given passages.\n{context}\n\nAnswer the question based on the given passages. Only give me the answer and do not output any other words.\n\nQuestion: {question}\nAnswer:",
+  "max_new_tokens": 32,
+  "sample_decode_steps": [
+    0,
+    1,
+    3,
+    7,
+    15,
+    23,
+    30
+  ],
+  "trajectories": [
+    "full",
+    "old_adaptive"
+  ],
+  "ranker_sha256": "376a0e09edb450de8bc0b4e891bcd7d38fe3c04d414baf8fa2369ccbe3aa81aa",
+  "old_budget_sha256": "b19dded4a100fd480c7d2852cc7bbc7892f8cd39420d98980d17d3655050d067",
+  "architecture": "Unchanged 588 -> 128 -> 64 -> 9 CE budget classifier; frozen ranker.",
+  "training": "Same seed, optimizer, 40 epochs, validation-CE checkpoint selection and validation-only quantile grid.",
+  "scope": "QA data and document count change together; not a one-factor attribution study. Hotpot50 remains regression-only."
+}

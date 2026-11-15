@@ -1,0 +1,27 @@
+{
+  "score_guard": 0.0001,
+  "cdf_guard": 0.0001,
+  "evidence": "All 54 existing frozen comparisons plus two new CWE prompts, B/25%, 8K and 16K. No prompt, answer or quota changes.",
+  "protected_sha256": {
+    "/root/adablock_runtime_optimization_20261022_01/comparison.json": "4a08095a1c684bfd47bd66b589d273fbe652ceae1d6cce9412921077b0e30239",
+    "/root/adablock_runtime_optimization_20261022_01/fast_digest.py": "a34636170a75fd22b9bea5306e20e92b1df942c529c816e67106f53bd2891c93",
+    "/root/adablock_runtime_optimization_20261022_01/gpu_controller.py": "c1bc5f359adbf798f12b0085fee0a3334b4b49e74c4f4f56de8c3d65ea19cad1",
+    "/root/adablock_runtime_optimization_20261022_01/results_3.jsonl": "212cdbeec410e4ab174d55a6b68d067deba09735b75b1f2f2390da4e96089be5",
+    "/root/adablock_runtime_optimization_20261022_01/results_2.jsonl": "cee87fac0597dd2c1227bad2e89e02543891a41fe787a06676546d0cfc3d8e5b",
+    "/root/adablock_runtime_optimization_20261022_01/results_0.jsonl": "b3c9a1d8f100b2e93d55cdd22a57b46bf44b6141150c17b8f1995d09c31d9e58",
+    "/root/adablock_runtime_optimization_20261022_01/results_1.jsonl": "5ee8d927ee06d537747759da33c3a1b96a789cd9d768a7aa743a5eab7d8156a0"
+  },
+  "source_sha256": {
+    "baseline_controller.py": "a81740e046b5ca7fe557deddb3d5e2814a4965c10aef04bfa1afb4e60c99b920",
+    "guarded_controller.py": "9a9efc115556fee074926fbd75980867caa1a2961de431fcf0e994c381ccc003",
+    "trace_analysis.py": "f54be662309599225fa07c47c92a8019c03321b66cc8020bb12ddec8c47617a8",
+    "diagnose.py": "2f43f5eaa19ce426183b2577e3f368ac18d4441f6deca89919aaa5c619bbdcd1",
+    "gpu_controller.py": "c1bc5f359adbf798f12b0085fee0a3334b4b49e74c4f4f56de8c3d65ea19cad1",
+    "regression.py": "a24c17659c62a9e1664ecc2990a7e1be4bbee430acaa3bd6908a3d536e69a53f",
+    "stable_digest.py": "8b07da0dfc9a878a50c68ac268757abdb4b0060e9907841f77ceb48b54cba641",
+    "fast_digest.py": "a34636170a75fd22b9bea5306e20e92b1df942c529c816e67106f53bd2891c93",
+    "experiment.py": "18ebaeb04ae43707933e7088dc142980199f0d6261061c4260239a723b1de6eb",
+    "probe_guard.py": "0291e91cb1ee3b7f90a6a6adf6095b98a2c3da0f9431e840d944bb66fb697c5d",
+    "cache_buffer.py": "9f12f3618f380a95330a857919e47617f4151848fe40e7939afd867aa3d768c6"
+  }
+}
