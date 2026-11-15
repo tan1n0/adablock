@@ -2,9 +2,9 @@
 
 代码模块、数据流和目录约定见 [当前代码架构](docs/architecture.md)。
 
-最新服务器代码见 [2026-11-07 gpu027 同步快照](server_snapshot_20261107_01/README.md)。该快照保留服务器原目录结构和逐文件校验记录。
+最新服务器代码见 [2026-11-07 gpu027 同步快照](experiments/server_snapshots/server_snapshot_20261107_01/README.md)。该快照保留服务器原目录结构和逐文件校验记录。
 
-S/A/B 训练、LongBench/RULER 评测、JSSA 适配和 CUDA Graph 优化的快照位置与运行范围，见 [代码快照说明](CODE_SNAPSHOT.md)。
+S/A/B 训练、LongBench/RULER 评测、JSSA 适配和 CUDA Graph 优化的快照位置与运行范围，见 [代码快照说明](experiments/server_snapshots/README.md)。
 
 ## 可学习 COBS 块排序器（v1）
 

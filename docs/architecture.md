@@ -14,7 +14,7 @@
 | experiments/one_off/ | 依赖固定数据或 GPU 配置的单次实验脚本 | 跟踪 |
 | experiments/code/ | 从旧运行目录收集、按内容去重的历史实验源码 | 跟踪 |
 | experiments/runs/、experiments/archives/ | 历史运行快照与结果压缩包 | 忽略，保留本地文件 |
-| server_snapshot_20261107_01/ 与根目录中带日期的实验目录 | 远端已提交的服务器源码与协议快照；索引见 CODE_SNAPSHOT.md | 跟踪，历史归档 |
+| experiments/server_snapshots/ | 远端已提交的服务器源码与协议快照；索引见其中的 README.md | 跟踪，历史归档 |
 | tools/reports/ | PPT 和文档生成器 | 跟踪 |
 | docs/ | 架构说明与实验记录 | 跟踪 |
 | data/、checkpoints/、results/、logs/ | 数据、权重、结果、运行日志 | 忽略，保留本地文件 |
@@ -53,7 +53,7 @@ scripts/build_ranking_dataset.py 复用 build_oracle_dataset.py 的采样器，�
 2. experiments/presets/ 的 Shell 脚本会自行切换到项目根目录；Python 预设从自身位置计算根目录，启动子进程时以根目录为工作目录。
 3. 新数据写入 data/，模型写入 checkpoints/，结果按主题写入 results/{longbench,policy,ranker,oracle,comparisons,llama,diagnostics,summaries,reports}/，运行日志写入 logs/。临时盘点和试跑放入 tmp/。
 4. results/ 顶层仍有被旧命令引用的兼容路径；主题目录中的相对链接指向同一份内容。路径对应关系保存在 tmp/results_organization_manifest.json。
-5. experiments/code/ 与 experiments/runs/ 是历史快照。其中的旧绝对路径和协议哈希保留原样，不作为新实验的路径模板。
+5. experiments/code/、experiments/runs/ 与 experiments/server_snapshots/ 是历史快照。其中的旧绝对路径和协议哈希保留原样，不作为新实验的路径模板。
 
 ## 验证与已知边界
 

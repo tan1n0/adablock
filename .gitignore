@@ -48,5 +48,5 @@ SESSION_SUMMARY.local.md
 *.docx
 /experiment_report_20261103_01/
 /gpt-visualizer/
-/jssa_20261023_01/official/
-/jssa_20261023_01/vllm/
+/experiments/server_snapshots/jssa_20261023_01/official/
+/experiments/server_snapshots/jssa_20261023_01/vllm/
