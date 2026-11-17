@@ -1,5 +1,8 @@
 # AdaBlock 实验指南
 
+100 条 32K RULER 的 Full、JSSA、Oracle、旧 MLP 与 COBS 统一运行入口见
+[七方法同题评测说明](docs/matched_ruler_100_20261117.md)。
+
 代码模块、数据流和目录约定见 [当前代码架构](docs/architecture.md)。
 
 最新服务器代码见 [2026-11-07 gpu027 同步快照](experiments/server_snapshots/server_snapshot_20261107_01/README.md)。该快照保留服务器原目录结构和逐文件校验记录。
