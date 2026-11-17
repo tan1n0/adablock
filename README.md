@@ -683,3 +683,21 @@ blocks；因此例如 `m32` 的总预算不是 32 blocks，而是：
 
 这些结果属于 `local=4` 的历史受控实验，不能直接与 `local=32` 的 90%/95%
 packed Oracle 结果合并平均。
+
+## GPU 保活
+
+后台保活所有 GPU：
+
+```bash
+python scripts/gpu_keepalive.py --daemon --devices all
+python scripts/gpu_keepalive.py --status
+python scripts/gpu_keepalive.py --stop
+```
+
+主进程每 2 秒通过 `nvidia-smi` 检查各卡的进程。空闲卡启动少量 CUDA 计算；
+发现其他进程后停止该卡的保活子进程，释放 CUDA 显存，空闲后自动恢复。
+日志和 PID 分别保存在 `tmp/gpu_keepalive.log`、`tmp/gpu_keepalive.pid`。
+
+默认每 10 秒计算约 50 毫秒。`--devices 0,2` 可指定卡，`--poll-interval` 调整检测频率，
+`--interval` 和 `--work-ms` 调整计算量，`--duration 60` 可在 60 秒后自动停止。
+不加 `--daemon` 时在前台运行，按 `Ctrl+C` 退出。

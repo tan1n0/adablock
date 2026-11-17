@@ -32,8 +32,11 @@ def cobs_terms(query, mean, basis, eigenvalues):
 def position_features(block_ids, counts, token_position: int, block_size: int):
     # Keys are strictly before token_position; block end is inclusive here.
     end = block_ids.float() * block_size + counts.float() - 1
-    distance = (float(token_position) - end).clamp_min(1)
-    length = distance.new_tensor(max(token_position, 1))
+    # A device scalar keeps distance dynamic during CUDA Graph replay.
+    position = (token_position.float() if isinstance(token_position, torch.Tensor) else
+                end.new_tensor(float(token_position)))
+    distance = (position - end).clamp_min(1)
+    length = position.clamp_min(1)
     return torch.stack((distance.log1p() / length.log1p(), distance / length), -1)
 
 
